@@ -40,6 +40,25 @@ export const Route = createFileRoute("/_authenticated/app/")({
 
 type StatusKind = "green" | "red" | "yellow" | "neutral" | "loading";
 
+function topologyRequest<T>(request: Promise<T>, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`${label} timed out. Check your connection and try again.`)),
+      12_000,
+    );
+    request.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 function HomeSiteTopology({ canOpenFull }: { canOpenFull: boolean }) {
   const tr = useT();
   const { site } = useSelectedSite();
@@ -49,8 +68,9 @@ function HomeSiteTopology({ canOpenFull }: { canOpenFull: boolean }) {
   const [chosenRouterId, setChosenRouterId] = useState("");
   const sites = useQuery({
     queryKey: ["topology-sites", "home"],
-    queryFn: () => fetchSites(),
+    queryFn: () => topologyRequest(fetchSites(), "Loading sites"),
     staleTime: 60_000,
+    retry: 1,
   });
   const candidates = sites.data ?? [];
   const selectedSite =
@@ -63,13 +83,17 @@ function HomeSiteTopology({ canOpenFull }: { canOpenFull: boolean }) {
   const topology = useQuery({
     queryKey: ["site-topology", "home", selectedSite?.siteId, selectedRouter?.id],
     queryFn: () =>
-      fetchTopology({
-        data: { siteId: selectedSite!.siteId, routerId: selectedRouter!.id },
-      }),
+      topologyRequest(
+        fetchTopology({
+          data: { siteId: selectedSite!.siteId, routerId: selectedRouter!.id },
+        }),
+        "Building Site Topology",
+      ),
     enabled: Boolean(selectedSite?.siteId && selectedRouter?.id),
     staleTime: 30_000,
     refetchInterval: 45_000,
     refetchIntervalInBackground: false,
+    retry: 1,
   });
 
   return (
@@ -132,16 +156,56 @@ function HomeSiteTopology({ canOpenFull }: { canOpenFull: boolean }) {
       </div>
       {sites.isLoading && !sites.data ? (
         <p className="text-sub mt-4 text-xs">{tr.copy("Connecting…")}</p>
+      ) : sites.error ? (
+        <div className="mt-4 rounded-xl border border-red-500/40 bg-red-500/10 p-4">
+          <p className="text-sm text-red-700 dark:text-red-200">{toErrorMessage(sites.error)}</p>
+          <button
+            type="button"
+            onClick={() => void sites.refetch()}
+            className="mt-3 inline-flex min-h-10 items-center rounded-full border border-red-500/50 px-4 text-xs font-medium text-red-800 transition hover:bg-red-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-red-100"
+          >
+            Try again
+          </button>
+        </div>
       ) : !candidates.length ? (
-        <p className="text-sub mt-4 text-sm">
-          {tr.copy("Add a site with a physical router to see the network diagram.")}
-        </p>
+        <div className="mt-4 rounded-xl border border-[color:var(--glass-border)] bg-[color:var(--surface-tint)] p-4">
+          <p className="text-sm font-medium">
+            {tr.copy("Add a site with a physical router to see the network diagram.")}
+          </p>
+          <p className="text-sub mt-1 text-xs">
+            Create the location first, then add or assign its RouterBoard. Site Topology will scan
+            WAN and LAN links automatically after the router passes its connection test.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link
+              to="/app/sites"
+              className="inline-flex min-h-10 items-center rounded-full bg-primary px-4 text-xs font-medium text-primary-foreground transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              Open sites
+            </Link>
+            <Link
+              to="/app/routers"
+              className="inline-flex min-h-10 items-center rounded-full border border-[color:var(--glass-border)] px-4 text-xs font-medium transition hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              Open routers
+            </Link>
+          </div>
+        </div>
       ) : topology.isLoading && !topology.data ? (
         <p className="text-sub mt-4 text-xs">{tr.copy("Building diagram…")}</p>
       ) : topology.error ? (
-        <p className="mt-4 text-sm text-red-700 dark:text-red-300">
-          {toErrorMessage(topology.error)}
-        </p>
+        <div className="mt-4 rounded-xl border border-red-500/40 bg-red-500/10 p-4">
+          <p className="text-sm text-red-700 dark:text-red-200">
+            {toErrorMessage(topology.error)}
+          </p>
+          <button
+            type="button"
+            onClick={() => void topology.refetch()}
+            className="mt-3 inline-flex min-h-10 items-center rounded-full border border-red-500/50 px-4 text-xs font-medium text-red-800 transition hover:bg-red-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-red-100"
+          >
+            Try again
+          </button>
+        </div>
       ) : topology.data ? (
         <div className="mt-4 w-full min-w-0 space-y-2">
           {topology.data.probeError && (

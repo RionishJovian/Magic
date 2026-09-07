@@ -19,4 +19,14 @@ describe("Home Site topology", () => {
     expect(topology).toContain("resolveHomeTopologyScope");
     expect(topology).toContain("assertTopologyPlatformAccess");
   });
+
+  it("cannot remain in an endless loading state and gives new trials setup actions", () => {
+    expect(home).toContain("function topologyRequest");
+    expect(home).toContain("12_000");
+    expect(home).toContain("sites.error");
+    expect(home).toContain("sites.refetch()");
+    expect(home).toContain("topology.refetch()");
+    expect(home).toContain('to="/app/sites"');
+    expect(home).toContain('to="/app/routers"');
+  });
 });
