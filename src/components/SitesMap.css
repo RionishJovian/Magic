@@ -1,0 +1,5 @@
+/* Override Leaflet's default white square around custom DivIcons. */
+.mm-site-pin.leaflet-div-icon {
+  background: transparent;
+  border: none;
+}

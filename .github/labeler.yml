@@ -1,0 +1,78 @@
+"area: i18n":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/lib/i18n/**"
+          - "src/routes/**/app.i18n.tsx"
+          - "tests/i18n-*.test.*"
+          - "scripts/i18n-*.mjs"
+
+"area: routers":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/lib/*router*"
+          - "src/lib/routers*"
+          - "src/lib/connectors*"
+          - "src/lib/wireguard/**"
+          - "src/lib/cloud-vps*"
+          - "src/lib/webfig*"
+          - "src/routes/**/app.routers.tsx"
+          - "tests/*router*.test.*"
+          - "tests/*connector*.test.*"
+
+"area: auth":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/lib/auth*"
+          - "src/lib/profile*"
+          - "src/lib/users*"
+          - "src/lib/session*"
+          - "src/routes/**/app.profile.tsx"
+          - "tests/*auth*.test.*"
+          - "tests/*role*.test.*"
+          - "tests/*tenant*.test.*"
+
+"area: portal":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/lib/portal/**"
+          - "src/lib/vouchers*"
+          - "src/routes/**/app.vouchers.tsx"
+          - "src/routes/**/app.portal*.tsx"
+          - "tests/*portal*.test.*"
+          - "tests/*voucher*.test.*"
+          - "tests/*hotspot*.test.*"
+
+"area: billing":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/lib/*pricing*"
+          - "src/lib/*payment*"
+          - "src/lib/*billing*"
+          - "src/lib/*orders*"
+          - "src/lib/*revenue*"
+          - "src/routes/**/app.orders.tsx"
+          - "src/routes/**/app.revenue.tsx"
+          - "tests/*payment*.test.*"
+          - "tests/*pricing*.test.*"
+          - "tests/*revenue*.test.*"
+          - "tests/*order*.test.*"
+
+"area: security":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/lib/*security*"
+          - "src/lib/*crypto*"
+          - "src/lib/*audit*"
+          - "src/lib/*rls*"
+          - "src/lib/*.server.ts"
+          - "src/routes/api/**"
+          - ".env.example"
+          - "tests/*security*.test.*"
+          - "tests/*rls*.test.*"
+
+"documentation":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - "docs/**"
+          - ".github/ISSUE_TEMPLATE/**"

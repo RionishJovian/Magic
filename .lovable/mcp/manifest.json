@@ -1,0 +1,118 @@
+{
+  "version": 1,
+  "sdk_version": "0.26.1",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://ktytwwlhxxcgiwkkhymi.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "mikrotik-hotspot-admin-mcp",
+      "version": "0.1.0",
+      "title": "MikroTik Hotspot Admin"
+    },
+    "tools": [
+      {
+        "name": "list_routers",
+        "title": "List routers",
+        "description": "List MikroTik routers registered by the signed-in user.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_active_hotspot_users",
+        "title": "List active hotspot users",
+        "description": "Fetch the live list of active hotspot sessions on the given router (IP, MAC, user, uptime, bytes).",
+        "annotations": {
+          "readOnlyHint": true,
+          "openWorldHint": true
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "router_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Router ID from list_routers."
+            }
+          },
+          "required": [
+            "router_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_vouchers",
+        "title": "List hotspot vouchers",
+        "description": "List hotspot users (vouchers) configured on the router.",
+        "annotations": {
+          "readOnlyHint": true,
+          "openWorldHint": true
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "router_id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "router_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_portal_settings",
+        "title": "Get captive portal settings",
+        "description": "Read the signed-in user's liquid-glass captive portal configuration.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_router_reachability",
+        "title": "Get router reachability",
+        "description": "Aggregate reachability check across the signed-in user's registered physical routers. Returns counts only (total, reachable, unreachable, status) — never router details.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": true
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}

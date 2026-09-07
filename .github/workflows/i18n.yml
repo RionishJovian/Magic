@@ -1,0 +1,32 @@
+name: i18n
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Language consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+      - run: bun install --frozen-lockfile
+      # Fails the build when Chinese or Burmese coverage drops below 100% of the
+      # strings actually rendered, or when a script/Burmese-UI rule is violated.
+      - name: Audit translations
+        run: bun run i18n:ci
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i18n-report
+          path: src/lib/i18n/report.generated.ts

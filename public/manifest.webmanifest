@@ -1,0 +1,36 @@
+{
+  "name": "MikroTik Magic — Cloud Hotspot Manager",
+  "short_name": "MikroTik Magic",
+  "description": "Remote-manage MikroTik hotspots: vouchers, live sessions, captive portal, fleet health and AI insights.",
+  "start_url": "/app",
+  "id": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#051F20",
+  "theme_color": "#051F20",
+  "lang": "en",
+  "dir": "ltr",
+  "prefer_related_applications": false,
+  "categories": ["business", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

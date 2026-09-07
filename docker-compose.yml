@@ -1,0 +1,76 @@
+version: "3.8"
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: mikromagic-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    networks:
+      - mikromagic-network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mikromagic-app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - OLLAMA_API_URL=http://ollama:11434
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_PUBLISHABLE_KEY=${SUPABASE_PUBLISHABLE_KEY:-}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
+      - VITE_SUPABASE_URL=${SUPABASE_URL:-}
+      - VITE_SUPABASE_PUBLISHABLE_KEY=${SUPABASE_PUBLISHABLE_KEY:-}
+      - VPS_ROUTER_API_URL=${VPS_ROUTER_API_URL:-https://hub.mikromagic.app/internal/provisioner}
+      - VPS_ROUTER_API_KEY_ID=${VPS_ROUTER_API_KEY_ID:-v1}
+      - VPS_ROUTER_API_SIGNING_SECRET=${VPS_ROUTER_API_SIGNING_SECRET:-}
+      - VPS_ROUTER_WG_SUBNET=${VPS_ROUTER_WG_SUBNET:-10.77.0.0/24}
+      - VPS_ROUTER_HUB_ROUTE=${VPS_ROUTER_HUB_ROUTE:-10.77.0.1/32}
+      - APP_ROUTER_SECRET=${APP_ROUTER_SECRET:-dev-secret-key}
+      - CRON_SECRET=${CRON_SECRET:-dev-cron-secret}
+      - PUBLIC_APP_URL=${PUBLIC_APP_URL:-http://localhost:3000}
+      - LOVABLE_API_KEY=${LOVABLE_API_KEY:-}
+      - AI_MODEL=${AI_MODEL:-deepseek-r1:8b}
+      - AI_DAILY_MESSAGE_CAP=${AI_DAILY_MESSAGE_CAP:-50}
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:3000', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})",
+        ]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - mikromagic-network
+
+volumes:
+  ollama-data:
+
+networks:
+  mikromagic-network:
+    driver: bridge

@@ -1,0 +1,5 @@
+-- OBSOLETE — do not run.
+-- Putting kyaw / CCR_2004 under Primary nish contradicts the self-own model
+-- (User = café owner of their own RouterBOARD).
+--
+-- Use instead: .lovable/sql/repair-kyaw-cafe-router-self-own.sql

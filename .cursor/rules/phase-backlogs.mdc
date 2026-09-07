@@ -1,0 +1,26 @@
+---
+description: Phase backlogs — Phase 1 / 1.5 / 2 / Sandphase 1 / Phase 3 IA / Phase 4 NOC quality.
+alwaysApply: true
+---
+
+# Phase backlogs (pending)
+
+Plans on this repo:
+
+1. **Phase 1** — Local Connector / Cloud DDNS / nav honesty: `.lovable/plan/phase-1-connector-nav-audit-fixes-2026-08-14.md` — **merged** to `main` via GitHub PR #1 (2026-08-15).
+2. **Phase 1.5** — Alibaba Singapore WireGuard hub: `.lovable/plan/phase-1.5-alibaba-wireguard-hub-2026-08-14.md` — app client + hub REST data-plane are live. Remaining: Lovable Cloud `VPS_ROUTER_*` secrets, then one real MikroTik handshake + Test.
+3. **Phase 2** — Quick Setup script DDNS / TLS:443 / REST honesty: `.lovable/plan/phase-2-quick-setup-ddns-tls-rest-2026-08-15.md` — **merged** to `main` via #6 (2026-08-15).
+4. **Sandphase 1** — virtual in-app sandbox router: `.lovable/plan/sandphase-1-virtual-router-lab-2026-08-15.md` — **merged** to `main` via GitHub PR #9 (2026-08-15). Remaining: apply `supabase/migrations/20260815143000_sandphase1_virtual_router.sql` and `supabase/migrations/20260816071000_fix_quota_trigger_sites_connection_mode.sql` on Lovable Cloud, then republish.
+5. **Phase 3** — Surface hidden treasures (IA): `.lovable/plan/phase-3-ia-hidden-treasures-2026-08-15.md` — **merged** to `main` via GitHub PR #11 (2026-08-15).
+6. **Phase 4** — NOC quality (MikroGate adoption): `.lovable/plan/phase-4-noc-quality-from-mikrogate-2026-08-16.md` — **merged** to `main` via GitHub PR #33 (2026-08-16). Remaining: apply `supabase/migrations/20260816190000_phase4_incident_kinds.sql` on Lovable Cloud SQL Editor, then republish.
+7. **Site topology Phase A** — platform-admin WAN → router → ports diagram: **merged** to `main` via PR #173 (2026-08-22). Remaining: apply `.lovable/sql/site_topology_platform_admin.sql` on Lovable Cloud, then republish.
+8. **Site topology Phase B** — smarter guest IP pool health on `/app/topology`: `.lovable/plan/site-topology-phase-b-smarter-pooling-2026-08-22.md` (in progress).
+9. **Site topology Phase C** — managed downstream / CRS subtree (deferred): `.lovable/plan/site-topology-phase-c-managed-downstream-2026-08-22.md`.
+
+## Priority guidance
+
+For **stable Cloud Remote for NAT/CGNAT clients** using the Alibaba VPS: paste hub-matching `VPS_ROUTER_*` secrets in Lovable Project → Secrets, republish, then provision one router from CloudPanel.
+
+**Phase 1** Local Connector, **Phase 2** Quick Setup, **Sandphase 1**, **Phase 3** IA, and **Phase 4** NOC quality are on GitHub `main`.
+
+Do not dial LAN IPs from the cloud. Do not commit the hub `.pem` or signing secrets.

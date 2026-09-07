@@ -1,0 +1,25 @@
+services:
+  fake-ruijie-gateway:
+    image: node:22-alpine
+    container_name: mikromagic-fake-ruijie-gateway
+    working_dir: /workspace
+    command: ["node", "tools/ruijie-lab/fake-gateway.mjs"]
+    volumes:
+      - ./:/workspace:ro
+    environment:
+      NODE_ENV: test
+      LAB_BIND_HOST: 0.0.0.0
+      LAB_PORT: 18080
+      LAB_GATEWAY_ID: fake-rg-eg310gh-pe
+      LAB_GATEWAY_MODE: reachable
+    ports:
+      - "127.0.0.1:18080:18080"
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    networks:
+      - mikromagic-ruijie-lab
+
+networks:
+  mikromagic-ruijie-lab:
+    internal: true
