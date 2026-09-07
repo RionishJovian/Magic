@@ -19,11 +19,15 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 const navigate = vi.fn();
 const resolve = vi.fn();
 const signIn = vi.fn();
+const createTrial = vi.fn();
 const getSession = vi.fn();
 
 vi.mock("@tanstack/react-router", () => ({ useNavigate: () => navigate }));
-vi.mock("@tanstack/react-start", () => ({ useServerFn: () => resolve }));
+vi.mock("@tanstack/react-start", () => ({
+  useServerFn: (fn: { kind?: string }) => (fn?.kind === "trial" ? createTrial : resolve),
+}));
 vi.mock("@/lib/owner.functions", () => ({ resolveLoginEmail: {} }));
+vi.mock("@/lib/trial-signup.functions", () => ({ createTrialAccount: { kind: "trial" } }));
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     auth: {
@@ -39,6 +43,7 @@ beforeEach(() => {
   navigate.mockReset();
   resolve.mockReset();
   signIn.mockReset();
+  createTrial.mockReset();
   getSession.mockReset().mockResolvedValue({ data: { session: null } });
 });
 afterEach(cleanup);
@@ -145,5 +150,45 @@ describe("SignInForm", () => {
     await waitFor(() =>
       expect(navigate).toHaveBeenCalledWith({ to: "/app/vouchers", replace: true }),
     );
+  });
+
+  it("creates an immediately usable seven-day trial account", async () => {
+    createTrial.mockResolvedValue({ ok: true, username: "newcafe" });
+    resolve.mockResolvedValue({ email: "newcafe@mikromagic" });
+    signIn.mockResolvedValue({ error: null });
+    renderSignIn("/app");
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("tab", { name: "Start free trial" }));
+    await user.type(screen.getByPlaceholderText("Your name or business name"), "New Cafe");
+    await user.type(screen.getByPlaceholderText("Choose a username"), "NewCafe");
+    await user.type(screen.getByPlaceholderText("Password"), "magic6");
+    await user.type(screen.getByPlaceholderText("Confirm password"), "magic6");
+    await user.click(screen.getByRole("button", { name: "Create trial account" }));
+
+    await waitFor(() =>
+      expect(createTrial).toHaveBeenCalledWith({
+        data: {
+          username: "newcafe",
+        password: "magic6",
+          display_name: "New Cafe",
+        },
+      }),
+    );
+    expect(signIn).toHaveBeenCalledWith({ email: "newcafe@mikromagic", password: "magic6" });
+    expect(navigate).toHaveBeenCalledWith({ to: "/app", replace: true });
+  });
+
+  it("blocks a trial signup when password confirmation differs", async () => {
+    renderSignIn("/app");
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("tab", { name: "Start free trial" }));
+    await user.type(screen.getByPlaceholderText("Your name or business name"), "New Cafe");
+    await user.type(screen.getByPlaceholderText("Choose a username"), "NewCafe");
+    await user.type(screen.getByPlaceholderText("Password"), "magic6");
+    await user.type(screen.getByPlaceholderText("Confirm password"), "magic7");
+    await user.click(screen.getByRole("button", { name: "Create trial account" }));
+
+    expect((await screen.findByRole("alert")).textContent).toBe("Passwords do not match.");
+    expect(createTrial).not.toHaveBeenCalled();
   });
 });

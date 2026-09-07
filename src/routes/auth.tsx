@@ -74,8 +74,8 @@ function AuthPage() {
           </Link>
         </div>
         <p className="text-sub mt-4 text-xs leading-relaxed">
-          Accounts are created by the app developer and agents. If you need access, contact us on
-          Telegram.
+          New operators can start a 7-day trial above. For managed onboarding or an existing
+          account, contact us on Telegram.
         </p>
         <TelegramCta
           label="Contact us on Telegram"
