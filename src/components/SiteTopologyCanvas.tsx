@@ -79,10 +79,10 @@ function layoutTree(snapshot: SiteTopologySnapshot) {
 
   type Placed = { id: string; x: number; y: number; w: number; h: number };
   const placed: Placed[] = [];
-  const nodeW = 148;
-  const nodeH = 60;
-  const xGap = 24;
-  const yGap = 56;
+  const nodeW = 184;
+  const nodeH = 72;
+  const xGap = 32;
+  const yGap = 64;
 
   function placeSubtree(id: string, depth: number, slot: number, span: number): number {
     const kids = children.get(id) ?? [];
@@ -133,6 +133,29 @@ function insightPosition(p: { x: number; y: number; w: number; h: number }) {
   return { x: p.x + p.w + gap, y: p.y + (p.h - chipHeight) / 2 };
 }
 
+function mobileTreeRows(snapshot: SiteTopologySnapshot) {
+  const byId = new Map(snapshot.nodes.map((node) => [node.id, node]));
+  const children = new Map<string, string[]>();
+  for (const edge of snapshot.edges) {
+    const list = children.get(edge.from) ?? [];
+    list.push(edge.to);
+    children.set(edge.from, list);
+  }
+
+  const rows: Array<{ node: TopologyNode; depth: number }> = [];
+  const visited = new Set<string>();
+  const visit = (id: string, depth: number) => {
+    if (visited.has(id)) return;
+    visited.add(id);
+    const node = byId.get(id);
+    if (node) rows.push({ node, depth });
+    for (const child of children.get(id) ?? []) visit(child, depth + 1);
+  };
+  visit("wan", 0);
+  for (const node of snapshot.nodes) visit(node.id, 0);
+  return rows;
+}
+
 export function SiteTopologyCanvas({
   snapshot,
   selectedNodeId,
@@ -141,112 +164,153 @@ export function SiteTopologyCanvas({
   const { placed, byId, width, height, nodeW, nodeH } = layoutTree(snapshot);
   const pos = new Map(placed.map((p) => [p.id, p]));
   const priorityInsight = insightNode(snapshot);
+  const mobileRows = mobileTreeRows(snapshot);
+  const canvasWidth = Math.max(width, 760);
+  const deviceCount = snapshot.nodes.filter(
+    (node) => node.kind === "device" && node.id !== "device:other-clients",
+  ).length;
+  const portCount = snapshot.nodes.filter((node) => node.kind === "port").length;
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-emerald-300/20 bg-[radial-gradient(circle_at_50%_45%,rgba(79,70,229,0.12),transparent_32%),linear-gradient(rgba(255,255,255,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.035)_1px,transparent_1px)] bg-[size:auto,24px_24px,24px_24px] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        className="mx-auto min-w-[320px] max-w-full"
-        role="img"
+    <div className="rounded-xl border border-emerald-300/20 bg-[radial-gradient(circle_at_50%_45%,rgba(79,70,229,0.12),transparent_32%),linear-gradient(rgba(255,255,255,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.035)_1px,transparent_1px)] bg-[size:auto,24px_24px,24px_24px] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-medium text-foreground">
+          {portCount} LAN port{portCount === 1 ? "" : "s"} · {deviceCount} downstream device
+          {deviceCount === 1 ? "" : "s"}
+        </p>
+        <p className="hidden text-[10px] text-muted-foreground sm:block">
+          Scroll horizontally to explore every branch
+        </p>
+      </div>
+
+      <div
+        className="mt-3 space-y-2 sm:hidden"
+        role="list"
         aria-label={`Network topology for ${snapshot.siteName}`}
       >
-        <defs>
-          <filter id="magic-dude-glow" x="-60%" y="-60%" width="220%" height="220%">
-            <feGaussianBlur stdDeviation="4" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-        <style>{`
-          @keyframes topology-link-flow { to { stroke-dashoffset: -27; } }
-          @media (prefers-reduced-motion: reduce) { .topology-link-up { animation: none !important; } }
-        `}</style>
-        {snapshot.edges.map((e) => {
-          const a = pos.get(e.from);
-          const b = pos.get(e.to);
-          if (!a || !b) return null;
-          const x1 = a.x + nodeW / 2;
-          const y1 = a.y + nodeH;
-          const x2 = b.x + nodeW / 2;
-          const y2 = b.y;
-          const middleY = y1 + (y2 - y1) / 2;
-          return (
-            <path
-              key={e.id}
-              d={`M ${x1} ${y1} C ${x1} ${middleY}, ${x2} ${middleY}, ${x2} ${y2}`}
-              fill="none"
-              stroke={STATUS_COLOR[e.status]}
-              strokeWidth={2.8}
-              strokeOpacity={0.95}
-              strokeDasharray="2 7"
-              strokeLinecap="round"
-              className={e.status === "up" ? "topology-link-up" : undefined}
-              style={
-                e.status === "up"
-                  ? { animation: "topology-link-flow 1.1s linear infinite" }
-                  : undefined
-              }
-            />
-          );
-        })}
-        {placed.map((p) => {
-          const node = byId.get(p.id);
-          if (!node) return null;
+        {mobileRows.map(({ node, depth }) => {
           const style = NODE_STYLE[node.kind] ?? NODE_STYLE.device;
           const visual = nodeVisual(node);
           const selected = node.id === selectedNodeId;
-          const showInsight = priorityInsight?.id === node.id;
-          const chipPosition = insightPosition(p);
-          return (
-            <g key={p.id}>
-              <g
-                transform={`translate(${p.x}, ${p.y})`}
-                role={onSelectNode ? "button" : undefined}
-                tabIndex={onSelectNode ? 0 : undefined}
-                aria-label={onSelectNode ? `Inspect ${node.label}` : undefined}
-                className={onSelectNode ? "cursor-pointer" : undefined}
-                onClick={() => onSelectNode?.(node)}
-                onKeyDown={(event) => {
-                  if (onSelectNode && (event.key === "Enter" || event.key === " ")) {
-                    event.preventDefault();
-                    onSelectNode(node);
-                  }
-                }}
+          const content = (
+            <>
+              <span
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border"
+                style={{ color: style.stroke, borderColor: style.stroke, background: style.fill }}
               >
-                <rect
-                  width={nodeW}
-                  height={nodeH}
-                  rx={10}
-                  fill={style.fill}
-                  stroke={selected ? "#a78bfa" : style.stroke}
-                  strokeWidth={selected ? 2 : 1.5}
-                  filter={selected ? "url(#magic-dude-glow)" : undefined}
-                />
-                <g
-                  transform="translate(10, 15)"
-                  className={visual === "hub" ? "animate-pulse" : undefined}
-                  color={style.stroke}
-                >
+                <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
                   <NodeIcon visual={visual} />
-                </g>
-                <circle cx={39} cy={16} r={4.5} fill={STATUS_COLOR[node.status]} />
-                <text x={50} y={21} fill="#f4f4f5" fontSize={11} fontWeight={600}>
-                  {node.label.length > 12 ? `${node.label.slice(0, 11)}…` : node.label}
-                </text>
+                </svg>
+              </span>
+              <span className="min-w-0 flex-1 text-left">
+                <span className="flex items-center gap-2">
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: STATUS_COLOR[node.status] }}
+                  />
+                  <span className="truncate text-sm font-semibold text-foreground">
+                    {node.label}
+                  </span>
+                </span>
                 {node.detail && (
-                  <text x={12} y={45} fill="#a1a1aa" fontSize={9}>
-                    {node.detail.length > 24 ? `${node.detail.slice(0, 23)}…` : node.detail}
-                  </text>
+                  <span className="mt-0.5 block break-words text-xs text-muted-foreground">
+                    {node.detail}
+                  </span>
                 )}
-              </g>
-              {showInsight && (
+              </span>
+            </>
+          );
+          const rowClass = `relative flex min-h-14 w-full items-center gap-3 rounded-xl border p-3 ${
+            selected ? "border-violet-400 ring-2 ring-violet-400/30" : "border-white/10"
+          } bg-black/10`;
+          return (
+            <div
+              key={node.id}
+              role="listitem"
+              className={depth ? "border-l border-emerald-300/25 pl-2" : undefined}
+              style={{ marginLeft: `${Math.min(depth * 12, 36)}px` }}
+            >
+              {onSelectNode ? (
+                <button
+                  type="button"
+                  className={rowClass}
+                  aria-label={`Inspect ${node.label}`}
+                  onClick={() => onSelectNode(node)}
+                >
+                  {content}
+                </button>
+              ) : (
+                <div className={rowClass}>{content}</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-3 hidden max-w-full overflow-x-auto rounded-lg border border-white/5 sm:block">
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          className="block h-auto"
+          style={{ width: `${canvasWidth}px`, minWidth: `${canvasWidth}px` }}
+          role="img"
+          aria-label={`Network topology for ${snapshot.siteName}`}
+        >
+          <defs>
+            <filter id="magic-dude-glow" x="-60%" y="-60%" width="220%" height="220%">
+              <feGaussianBlur stdDeviation="4" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+          <style>{`
+          @keyframes topology-link-flow { to { stroke-dashoffset: -27; } }
+          @media (prefers-reduced-motion: reduce) { .topology-link-up { animation: none !important; } }
+        `}</style>
+          {snapshot.edges.map((e) => {
+            const a = pos.get(e.from);
+            const b = pos.get(e.to);
+            if (!a || !b) return null;
+            const x1 = a.x + nodeW / 2;
+            const y1 = a.y + nodeH;
+            const x2 = b.x + nodeW / 2;
+            const y2 = b.y;
+            const middleY = y1 + (y2 - y1) / 2;
+            return (
+              <path
+                key={e.id}
+                d={`M ${x1} ${y1} C ${x1} ${middleY}, ${x2} ${middleY}, ${x2} ${y2}`}
+                fill="none"
+                stroke={STATUS_COLOR[e.status]}
+                strokeWidth={2.8}
+                strokeOpacity={0.95}
+                strokeDasharray="2 7"
+                strokeLinecap="round"
+                className={e.status === "up" ? "topology-link-up" : undefined}
+                style={
+                  e.status === "up"
+                    ? { animation: "topology-link-flow 1.1s linear infinite" }
+                    : undefined
+                }
+              />
+            );
+          })}
+          {placed.map((p) => {
+            const node = byId.get(p.id);
+            if (!node) return null;
+            const style = NODE_STYLE[node.kind] ?? NODE_STYLE.device;
+            const visual = nodeVisual(node);
+            const selected = node.id === selectedNodeId;
+            const showInsight = priorityInsight?.id === node.id;
+            const chipPosition = insightPosition(p);
+            return (
+              <g key={p.id}>
                 <g
-                  transform={`translate(${chipPosition.x}, ${chipPosition.y})`}
+                  transform={`translate(${p.x}, ${p.y})`}
                   role={onSelectNode ? "button" : undefined}
                   tabIndex={onSelectNode ? 0 : undefined}
-                  aria-label={`Open Magic Dude insight for ${node.label}`}
+                  aria-label={onSelectNode ? `Inspect ${node.label}` : undefined}
                   className={onSelectNode ? "cursor-pointer" : undefined}
                   onClick={() => onSelectNode?.(node)}
                   onKeyDown={(event) => {
@@ -257,21 +321,63 @@ export function SiteTopologyCanvas({
                   }}
                 >
                   <rect
-                    width="104"
-                    height="24"
-                    rx="12"
-                    fill="rgba(76, 29, 149, 0.72)"
-                    stroke="rgba(167, 139, 250, 0.8)"
+                    width={nodeW}
+                    height={nodeH}
+                    rx={14}
+                    fill={style.fill}
+                    stroke={selected ? "#a78bfa" : style.stroke}
+                    strokeWidth={selected ? 2 : 1.5}
+                    filter={selected ? "url(#magic-dude-glow)" : undefined}
                   />
-                  <text x="12" y="16" fill="#ede9fe" fontSize="9" fontWeight="600">
-                    ✦ Magic Dude · 1 insight
+                  <g
+                    transform="translate(12, 19)"
+                    className={visual === "hub" ? "animate-pulse" : undefined}
+                    color={style.stroke}
+                  >
+                    <NodeIcon visual={visual} />
+                  </g>
+                  <circle cx={43} cy={20} r={5} fill={STATUS_COLOR[node.status]} />
+                  <text x={55} y={25} fill="#f4f4f5" fontSize={13} fontWeight={600}>
+                    {node.label.length > 18 ? `${node.label.slice(0, 17)}…` : node.label}
                   </text>
+                  {node.detail && (
+                    <text x={14} y={54} fill="#c4c4cc" fontSize={10}>
+                      {node.detail.length > 30 ? `${node.detail.slice(0, 29)}…` : node.detail}
+                    </text>
+                  )}
                 </g>
-              )}
-            </g>
-          );
-        })}
-      </svg>
+                {showInsight && (
+                  <g
+                    transform={`translate(${chipPosition.x}, ${chipPosition.y})`}
+                    role={onSelectNode ? "button" : undefined}
+                    tabIndex={onSelectNode ? 0 : undefined}
+                    aria-label={`Open Magic Dude insight for ${node.label}`}
+                    className={onSelectNode ? "cursor-pointer" : undefined}
+                    onClick={() => onSelectNode?.(node)}
+                    onKeyDown={(event) => {
+                      if (onSelectNode && (event.key === "Enter" || event.key === " ")) {
+                        event.preventDefault();
+                        onSelectNode(node);
+                      }
+                    }}
+                  >
+                    <rect
+                      width="104"
+                      height="24"
+                      rx="12"
+                      fill="rgba(76, 29, 149, 0.72)"
+                      stroke="rgba(167, 139, 250, 0.8)"
+                    />
+                    <text x="12" y="16" fill="#ede9fe" fontSize="9" fontWeight="600">
+                      ✦ Magic Dude · 1 insight
+                    </text>
+                  </g>
+                )}
+              </g>
+            );
+          })}
+        </svg>
+      </div>
       <div className="mt-2 flex flex-wrap gap-3 text-[10px] text-muted-foreground">
         <span>
           <span className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-400" />
@@ -286,7 +392,7 @@ export function SiteTopologyCanvas({
           Unknown
         </span>
       </div>
-      {!selectedNodeId && (
+      {onSelectNode && !selectedNodeId && (
         <p className="mt-3 text-center text-xs text-muted-foreground">
           Select a device or investigate an alert to ask Magic Dude.
         </p>

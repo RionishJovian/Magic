@@ -208,6 +208,7 @@ function TopologyPage() {
                 !topology.data.discoveryAccess.bridgeHostTable && "/interface/bridge/host",
                 !topology.data.discoveryAccess.dhcpLeases && "/ip/dhcp-server/lease",
                 !topology.data.discoveryAccess.arp && "/ip/arp",
+                !topology.data.discoveryAccess.hotspotActive && "/ip/hotspot/active",
               ]
                 .filter(Boolean)
                 .join(", ")}
@@ -217,10 +218,11 @@ function TopologyPage() {
           )}
           {topology.data.discoveredDevices.length > 0 && (
             <p className="rounded-md border border-sky-400/25 bg-sky-400/5 px-3 py-2 text-xs text-sky-100">
-              {topology.data.discoveredDevices.length} device
-              {topology.data.discoveredDevices.length === 1 ? "" : "s"} learned behind saved switch
-              ports. These are bridge-table observations; their physical switch ports are not
-              confirmed.
+              {topology.data.discoveredDevices.length} connected device
+              {topology.data.discoveredDevices.length === 1 ? "" : "s"} observed through the bridge
+              host table, active DHCP leases, ARP, or active Hotspot sessions. A device is placed
+              beneath its learned router port when RouterOS reports one; otherwise it appears under
+              Other connected devices.
             </p>
           )}
           {selectedNode && (

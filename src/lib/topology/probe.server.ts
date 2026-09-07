@@ -63,34 +63,93 @@ function normalizeMac(value: string | undefined): string {
   return (value ?? "").toUpperCase();
 }
 
-function discoveredBridgeDevices(input: {
+function validClientMac(value: string): boolean {
+  return (
+    /^[0-9A-F]{2}(?::[0-9A-F]{2}){5}$/.test(value) &&
+    value !== "00:00:00:00:00:00" &&
+    value !== "FF:FF:FF:FF:FF:FF"
+  );
+}
+
+function discoveredNetworkDevices(input: {
   bridgeHosts: Row[];
   leases: Row[];
   arps: Row[];
+  hotspotClients: Row[];
+  fallbackInterface: string;
 }): TopologyDiscoveredDevice[] {
-  const leaseByMac = new Map(input.leases.map((row) => [normalizeMac(row["mac-address"]), row]));
-  const arpByMac = new Map(input.arps.map((row) => [normalizeMac(row["mac-address"]), row]));
-  const seen = new Set<string>();
-  const devices: TopologyDiscoveredDevice[] = [];
+  const devices = new Map<string, TopologyDiscoveredDevice>();
 
+  const merge = (
+    macAddress: string,
+    patch: Partial<Omit<TopologyDiscoveredDevice, "macAddress">>,
+  ) => {
+    if (!validClientMac(macAddress)) return;
+    const current = devices.get(macAddress) ?? {
+      macAddress,
+      onInterface: input.fallbackInterface,
+      hostname: null,
+      ipAddress: null,
+      lastSeen: null,
+    };
+    devices.set(macAddress, {
+      ...current,
+      ...Object.fromEntries(
+        Object.entries(patch).filter(([, value]) => value !== null && value !== ""),
+      ),
+    });
+  };
+
+  for (const client of input.hotspotClients) {
+    merge(normalizeMac(client["mac-address"]), {
+      hostname: client.user?.trim() ? `Hotspot · ${client.user.trim()}` : null,
+      ipAddress: client.address ?? null,
+      lastSeen: client.uptime ?? null,
+    });
+  }
+
+  for (const lease of input.leases) {
+    if (lease.status && lease.status !== "bound") continue;
+    merge(normalizeMac(lease["mac-address"]), {
+      hostname: lease["host-name"]?.trim() || null,
+      ipAddress: lease["active-address"] ?? lease.address ?? null,
+      lastSeen: lease["last-seen"] ?? null,
+    });
+  }
+
+  for (const arp of input.arps) {
+    if (arp.complete === "false") continue;
+    merge(normalizeMac(arp["mac-address"]), {
+      onInterface: arp.interface ?? "",
+      hostname: arp["host-name"]?.trim() || null,
+      ipAddress: arp.address ?? null,
+      lastSeen: arp["last-seen"] ?? null,
+    });
+  }
+
+  // Apply bridge-host observations last because `on-interface` is the most
+  // precise RouterOS evidence for which physical router port learned the MAC.
   for (const host of input.bridgeHosts) {
     const macAddress = normalizeMac(host["mac-address"]);
     const onInterface = host["on-interface"] ?? "";
     if (!macAddress || !onInterface || host.local === "true" || host.type === "local") continue;
-    const key = `${onInterface}:${macAddress}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    const lease = leaseByMac.get(macAddress);
-    const arp = arpByMac.get(macAddress);
-    devices.push({
-      macAddress,
+    merge(macAddress, {
       onInterface,
-      hostname: lease?.["host-name"]?.trim() || arp?.["host-name"]?.trim() || null,
+      hostname: host["host-name"]?.trim() || null,
+      ipAddress: host.address ?? null,
       lastSeen: host["last-seen"] ?? null,
     });
   }
 
-  return devices.slice(0, 48);
+  return [...devices.values()]
+    .sort((a, b) =>
+      (a.hostname || a.ipAddress || a.macAddress).localeCompare(
+        b.hostname || b.ipAddress || b.macAddress,
+        undefined,
+        { numeric: true },
+      ),
+    )
+    .slice(0, 48);
 }
 
 /** Probe LAN topology from a reachable RouterBoard (Hub / Connector / direct). */
@@ -110,7 +169,12 @@ export async function probeRouterLanTopology(c: RouterConn): Promise<RouterLanPr
       poolHealthDetail: "Router unreachable",
       ports: [],
       discoveredDevices: [],
-      discoveryAccess: { bridgeHostTable: false, dhcpLeases: false, arp: false },
+      discoveryAccess: {
+        bridgeHostTable: false,
+        dhcpLeases: false,
+        arp: false,
+        hotspotActive: false,
+      },
     };
   }
 
@@ -124,6 +188,7 @@ export async function probeRouterLanTopology(c: RouterConn): Promise<RouterLanPr
       bridgeHostsResult,
       leasesResult,
       arpsResult,
+      hotspotClientsResult,
     ] = await Promise.all([
       wanInterfaceNames(c),
       listRows(c, "/ip/hotspot"),
@@ -135,6 +200,7 @@ export async function probeRouterLanTopology(c: RouterConn): Promise<RouterLanPr
       listRowsWithAccess(c, "/interface/bridge/host"),
       listRowsWithAccess(c, "/ip/dhcp-server/lease"),
       listRowsWithAccess(c, "/ip/arp"),
+      listRowsWithAccess(c, "/ip/hotspot/active"),
     ]);
 
     const wanSet = new Set(wanInterfaces);
@@ -173,6 +239,7 @@ export async function probeRouterLanTopology(c: RouterConn): Promise<RouterLanPr
       bridgeHostTable: bridgeHostsResult.accessible,
       dhcpLeases: leasesResult.accessible,
       arp: arpsResult.accessible,
+      hotspotActive: hotspotClientsResult.accessible,
     };
 
     return {
@@ -186,10 +253,12 @@ export async function probeRouterLanTopology(c: RouterConn): Promise<RouterLanPr
       poolHealth: poolSnap.poolHealth,
       poolHealthDetail: poolSnap.poolHealthDetail,
       ports,
-      discoveredDevices: discoveredBridgeDevices({
+      discoveredDevices: discoveredNetworkDevices({
         bridgeHosts: bridgeHostsResult.rows,
         leases: leasesResult.rows,
-        arps: arpsResult.rows,
+        arps: arpsResult.rows.filter((row) => !wanSet.has(row.interface ?? "")),
+        hotspotClients: hotspotClientsResult.rows,
+        fallbackInterface: hotspotBridge ?? "LAN clients",
       }),
       discoveryAccess,
     };
@@ -206,7 +275,12 @@ export async function probeRouterLanTopology(c: RouterConn): Promise<RouterLanPr
       poolHealthDetail: "Router unreachable",
       ports: [],
       discoveredDevices: [],
-      discoveryAccess: { bridgeHostTable: false, dhcpLeases: false, arp: false },
+      discoveryAccess: {
+        bridgeHostTable: false,
+        dhcpLeases: false,
+        arp: false,
+        hotspotActive: false,
+      },
     };
   }
 }

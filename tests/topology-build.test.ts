@@ -41,10 +41,11 @@ const probe: RouterLanProbe = {
       macAddress: "AA:BB:CC:DD:EE:01",
       onInterface: "ether3",
       hostname: "office-ap",
+      ipAddress: "192.168.88.20",
       lastSeen: "2s",
     },
   ],
-  discoveryAccess: { bridgeHostTable: true, dhcpLeases: true, arp: true },
+  discoveryAccess: { bridgeHostTable: true, dhcpLeases: true, arp: true, hotspotActive: true },
 };
 
 describe("buildSiteTopologySnapshot", () => {
@@ -71,13 +72,48 @@ describe("buildSiteTopologySnapshot", () => {
     expect(snap.guestPool?.name).toBe("hotspot-pool");
     expect(snap.edges.find((e) => e.id === "port-device-ether5")?.status).toBe("down");
     expect(
-      snap.nodes.some(
-        (n) => n.label === "office-ap" && n.detail?.includes("Learned behind CRS326"),
-      ),
+      snap.nodes.some((n) => n.label === "office-ap" && n.detail?.includes("192.168.88.20")),
     ).toBe(true);
-    expect(snap.edges.find((e) => e.id === "switch-learned-ether3-AA:BB:CC:DD:EE:01")?.from).toBe(
+    expect(snap.edges.find((e) => e.id === "port-client-ether3-AA:BB:CC:DD:EE:01")?.from).toBe(
       "device:ether3",
     );
+  });
+
+  it("shows discovered clients on unlabeled ports and bridge-level observations", () => {
+    const snap = buildSiteTopologySnapshot({
+      siteId: "site-1",
+      siteName: "Cafe",
+      routerId: "r1",
+      routerName: "RB5009",
+      routerOnline: true,
+      probe: {
+        ...probe,
+        discoveredDevices: [
+          {
+            macAddress: "AA:BB:CC:DD:EE:02",
+            onInterface: "ether4",
+            hostname: "guest-phone",
+            ipAddress: "192.168.88.21",
+            lastSeen: "1s",
+          },
+          {
+            macAddress: "AA:BB:CC:DD:EE:03",
+            onInterface: "bridge-lan",
+            hostname: null,
+            ipAddress: "192.168.88.22",
+            lastSeen: null,
+          },
+        ],
+      },
+      portLabels: [],
+    });
+
+    expect(snap.edges.find((edge) => edge.id.includes("AA:BB:CC:DD:EE:02"))?.from).toBe(
+      "port:ether4",
+    );
+    expect(snap.nodes.some((node) => node.label === "Other connected devices")).toBe(true);
+    expect(snap.nodes.some((node) => node.label === "192.168.88.22")).toBe(true);
+    expect(snap.discoveredDevices).toHaveLength(2);
   });
 
   it("marks WAN edge down when router is offline", () => {

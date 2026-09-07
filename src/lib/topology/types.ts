@@ -15,6 +15,7 @@ export type TopologyDiscoveredDevice = {
   macAddress: string;
   onInterface: string;
   hostname: string | null;
+  ipAddress: string | null;
   lastSeen: string | null;
 };
 
@@ -22,6 +23,7 @@ export type TopologyDiscoveryAccess = {
   bridgeHostTable: boolean;
   dhcpLeases: boolean;
   arp: boolean;
+  hotspotActive: boolean;
 };
 
 export type TopologyNodeKind = "wan" | "router" | "port" | "device";

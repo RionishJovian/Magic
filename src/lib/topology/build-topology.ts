@@ -64,17 +64,11 @@ export function buildSiteTopologySnapshot(input: {
   });
 
   const labelByPort = new Map(input.portLabels.map((p) => [p.port, p]));
-  const switchLabels = new Map(
-    input.portLabels
-      .filter((label) => label.kind === "switch" && label.label.trim())
-      .map((label) => [label.port, label]),
-  );
-  const discoveredBySwitchPort = new Map<string, TopologyDiscoveredDevice[]>();
+  const discoveredByPort = new Map<string, TopologyDiscoveredDevice[]>();
   for (const device of probe?.discoveredDevices ?? []) {
-    if (!switchLabels.has(device.onInterface)) continue;
-    const group = discoveredBySwitchPort.get(device.onInterface) ?? [];
+    const group = discoveredByPort.get(device.onInterface) ?? [];
     group.push(device);
-    discoveredBySwitchPort.set(device.onInterface, group);
+    discoveredByPort.set(device.onInterface, group);
   }
   const bridgePorts =
     probe?.ports.filter((p) => p.onHotspotBridge) ??
@@ -126,26 +120,77 @@ export function buildSiteTopologySnapshot(input: {
         to: deviceId,
         status: port.link,
       });
+    }
 
-      if (meta.kind === "switch") {
-        for (const discovered of discoveredBySwitchPort.get(port.name) ?? []) {
-          const suffix = discovered.macAddress.replace(/[^A-F0-9]/g, "").slice(-4);
-          const learnedId = `learned:${port.name}:${discovered.macAddress}`;
-          nodes.push({
-            id: learnedId,
-            kind: "device",
-            label: discovered.hostname || `Learned device · ${suffix}`,
-            detail: `Learned behind ${meta.label.trim()}${discovered.lastSeen ? ` · seen ${discovered.lastSeen}` : ""}`,
-            status: port.link,
-          });
-          edges.push({
-            id: `switch-learned-${port.name}-${discovered.macAddress}`,
-            from: deviceId,
-            to: learnedId,
-            status: port.link,
-          });
-        }
-      }
+    const discoveredParent = meta?.label?.trim() ? `device:${port.name}` : portId;
+    for (const discovered of discoveredByPort.get(port.name) ?? []) {
+      const suffix = discovered.macAddress.replace(/[^A-F0-9]/g, "").slice(-4);
+      const learnedId = `learned:${port.name}:${discovered.macAddress}`;
+      const detail = [
+        discovered.ipAddress,
+        `MAC · ${suffix}`,
+        discovered.lastSeen ? `seen ${discovered.lastSeen}` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      nodes.push({
+        id: learnedId,
+        kind: "device",
+        label: discovered.hostname || discovered.ipAddress || `Connected device · ${suffix}`,
+        detail,
+        status: port.link,
+      });
+      edges.push({
+        id: `port-client-${port.name}-${discovered.macAddress}`,
+        from: discoveredParent,
+        to: learnedId,
+        status: port.link,
+      });
+    }
+  }
+
+  const knownPorts = new Set(sortedPorts.map((port) => port.name));
+  const unplacedDevices = (probe?.discoveredDevices ?? []).filter(
+    (device) => !knownPorts.has(device.onInterface),
+  );
+  if (unplacedDevices.length) {
+    const groupId = "device:other-clients";
+    nodes.push({
+      id: groupId,
+      kind: "device",
+      label: "Other connected devices",
+      detail: `${unplacedDevices.length} observed on bridge, DHCP or ARP`,
+      status: input.routerOnline ? "up" : "down",
+    });
+    edges.push({
+      id: "router-other-clients",
+      from: routerId,
+      to: groupId,
+      status: input.routerOnline ? "up" : "down",
+    });
+    for (const discovered of unplacedDevices) {
+      const suffix = discovered.macAddress.replace(/[^A-F0-9]/g, "").slice(-4);
+      const learnedId = `learned:other:${discovered.macAddress}`;
+      nodes.push({
+        id: learnedId,
+        kind: "device",
+        label: discovered.hostname || discovered.ipAddress || `Connected device · ${suffix}`,
+        detail: [
+          discovered.ipAddress,
+          discovered.onInterface,
+          `MAC · ${suffix}`,
+          discovered.lastSeen ? `seen ${discovered.lastSeen}` : null,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        status: input.routerOnline ? "up" : "down",
+      });
+      edges.push({
+        id: `other-client-${discovered.macAddress}`,
+        from: groupId,
+        to: learnedId,
+        status: input.routerOnline ? "up" : "down",
+      });
     }
   }
 
@@ -165,11 +210,12 @@ export function buildSiteTopologySnapshot(input: {
     nodes,
     edges,
     portLabels: input.portLabels,
-    discoveredDevices: [...discoveredBySwitchPort.values()].flat(),
+    discoveredDevices: probe?.discoveredDevices ?? [],
     discoveryAccess: probe?.discoveryAccess ?? {
       bridgeHostTable: false,
       dhcpLeases: false,
       arp: false,
+      hotspotActive: false,
     },
     polledAt,
     probeError: probe?.error ?? (probe && !probe.reachable ? "Router unreachable" : null),
