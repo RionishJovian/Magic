@@ -20,18 +20,22 @@ export const Route = createFileRoute("/api/public/hooks/router-health")({
           if (error) throw new Error(error.message);
 
           const owners = [...new Set((rows ?? []).map((row) => row.owner_id))];
-          const results = [];
-          for (const ownerId of owners) {
-            try {
-              results.push(await runHealthSweepForOwner(ownerId));
-            } catch (error) {
-              results.push({
-                ownerId,
-                error: error instanceof Error ? error.message : String(error),
-              });
-            }
-          }
-          return Response.json({ ok: true, owners: owners.length, results });
+          
+          const results = await Promise.allSettled(
+            owners.map(async (ownerId) => {
+              return await runHealthSweepForOwner(ownerId);
+            })
+          );
+
+          const formattedResults = results.map((res, idx) => {
+            if (res.status === \"fulfilled\") return res.value;
+            return {
+              ownerId: owners[idx],
+              error: res.reason instanceof Error ? res.reason.message : String(res.reason),
+            };
+          });
+
+          return Response.json({ ok: true, owners: owners.length, results: formattedResults });
         } catch (error) {
           return Response.json(
             { ok: false, error: error instanceof Error ? error.message : String(error) },

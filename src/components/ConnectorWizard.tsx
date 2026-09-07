@@ -1,387 +1,149 @@
-import { useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
-import { toast } from "sonner";
-import { useT } from "@/lib/i18n";
-import {
-  listConnectors,
-  saveConnector,
-  generatePairingCode,
-  testConnector,
-} from "@/lib/connectors.functions";
-import { connectorInstallOrigin } from "@/lib/connector-install-origin";
-import { copyText } from "@/lib/browser/clipboard";
-import { detectDesktopOs, type DesktopOs } from "@/lib/browser/platform";
-import { toErrorMessage } from "@/lib/error-message";
+import React, { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useServerFn } from '@tanstack/react-start';
+import { toast } from 'sonner';
+import { saveConnector } from '@/lib/connectors.functions';
+import { detectDesktopOs } from '@/lib/browser/platform';
+import { copyText } from '@/lib/browser/clipboard';
 
-type StepId = 1 | 2 | 3 | 4;
+type StepId = 1 | 2 | 3;
 
-/** Client-facing install commands pin production except on localhost. */
-const origin = connectorInstallOrigin();
-
-const STEP_KEYS = [
-  "Name the connector",
-  "Pairing code",
-  "Install the agent",
-  "Verify & bind devices",
-] as const;
-
-function Stepper({
-  step,
-  maxReached,
-  onJump,
-}: {
-  step: StepId;
-  maxReached: StepId;
-  onJump: (n: StepId) => void;
-}) {
-  const t = useT();
-  return (
-    <ol className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-      {STEP_KEYS.map((label, i) => {
-        const n = (i + 1) as StepId;
-        const state = n < step ? "done" : n === step ? "active" : "todo";
-        const bubble = (
-          <>
-            <span
-              className={
-                "flex h-6 w-6 items-center justify-center rounded-full border text-[11px] " +
-                (state === "active"
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : state === "done"
-                    ? "border-primary/60 bg-primary/20 text-primary"
-                    : "border-border text-muted-foreground")
-              }
-            >
-              {n}
-            </span>
-            <span className={state === "todo" ? "text-muted-foreground" : ""}>
-              {t.label(label)}
-            </span>
-          </>
-        );
-        return (
-          <li key={label} className="flex items-center gap-2">
-            {n <= maxReached ? (
-              <button
-                type="button"
-                onClick={() => onJump(n)}
-                className="flex items-center gap-2 rounded-md px-1 py-0.5 hover:bg-muted/40"
-                aria-label={`Go to step ${n}`}
-              >
-                {bubble}
-              </button>
-            ) : (
-              <span className="flex items-center gap-2">{bubble}</span>
-            )}
-            {i < STEP_KEYS.length - 1 && <span className="text-muted-foreground">→</span>}
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
-function CopyBox({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="space-y-1">
-      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="flex items-start gap-2">
-        <code className="min-w-0 flex-1 break-all rounded-md border border-border/60 bg-surface/60 px-3 py-2 font-mono text-[11px] leading-relaxed">
-          {value}
-        </code>
-        <button
-          type="button"
-          onClick={() => {
-            void copyText(value).then((ok) => {
-              if (ok) toast.success("Copied");
-              else toast.error("Copy failed");
-            });
-          }}
-          className="shrink-0 rounded-md border border-border px-3 py-1.5 text-xs hover:border-primary hover:text-primary"
-        >
-          Copy
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Guided, click-through setup for a local MikroTik Magic Connector.
- * Mirrors the router Quick setup wizard: named steps, inline checks and a
- * final verification that the agent actually came online.
- */
-export function ConnectorWizard({ onDone }: { onDone?: () => void }) {
-  const t = useT();
-  const qc = useQueryClient();
-  const create = useServerFn(saveConnector);
-  const pair = useServerFn(generatePairingCode);
-  const test = useServerFn(testConnector);
-  const fetchConnectors = useServerFn(listConnectors);
-
+export function ConnectorWizard({ onDone }: { onDone: () => void }) {
   const [step, setStep] = useState<StepId>(1);
-  const [maxReached, setMaxReached] = useState<StepId>(1);
   const [name, setName] = useState("");
-  const [id, setId] = useState<string | null>(null);
-  const [code, setCode] = useState("");
-  const [os, setOs] = useState<DesktopOs>(() => detectDesktopOs());
+  const [os, setOs] = useState<"windows" | "macos">(() => detectDesktopOs() === "macos" ? "macos" : "windows");
+  
+  const qc = useQueryClient();
+  const save = useServerFn(saveConnector);
 
-  const go = (n: StepId) => {
-    setStep(n);
-    setMaxReached((m) => (n > m ? n : m));
-  };
-
-  const connectors = useQuery({
-    queryKey: ["connectors"],
-    queryFn: () => fetchConnectors(),
-    refetchInterval: step === 4 ? 5_000 : false,
-  });
-  const current = connectors.data?.find((c) => c.id === id);
-
-  const createMut = useMutation({
-    mutationFn: async () => {
-      const res = await create({ data: { name: name.trim() } });
-      return res.id;
-    },
-    onSuccess: (newId) => {
-      setId(newId);
-      void qc.invalidateQueries({ queryKey: ["connectors"] });
-      go(2);
-    },
-    onError: (e) => toast.error(toErrorMessage(e)),
-  });
-
-  const codeMut = useMutation({
-    mutationFn: async () => pair({ data: { id: id! } }),
+  const addMutation = useMutation({
+    mutationFn: (n: string) => save({ data: { name: n } }),
     onSuccess: (res) => {
-      setCode(res.code);
-      go(3);
+      toast.success("Connector created successfully");
+      qc.invalidateQueries({ queryKey: ["connectors"] });
+      onDone();
     },
-    onError: (e) => toast.error(toErrorMessage(e)),
+    onError: (e: any) => toast.error(e.message || "Failed to create connector"),
   });
 
-  const testMut = useMutation({
-    mutationFn: async () => test({ data: { id: id! } }),
-    onSuccess: (res) => {
-      if (res.ok) toast.success("Connector is reachable");
-      else toast.error(res.error ?? "Connector is not answering yet");
-      void qc.invalidateQueries({ queryKey: ["connectors"] });
-    },
-    onError: (e) => toast.error(toErrorMessage(e)),
-  });
-
-  const pairing = code || "YOUR-PAIRING-CODE";
-  const windowsCmd = useMemo(
-    () =>
-      `powershell -Command "& { $c='${pairing}'; iwr ${origin}/api/public/connector/install/windows -OutFile $env:TEMP\\mm-install.ps1; & $env:TEMP\\mm-install.ps1 -PairingCode $c -BaseUrl ${origin} }"`,
-    [pairing],
-  );
-  const macCmd = useMemo(
-    () =>
-      `curl -fsSL ${origin}/api/public/connector/install/macos | sudo MIKROMAGIC_BASE_URL=${origin} bash -s ${pairing}`,
-    [pairing],
-  );
-  const linuxCmd = useMemo(
-    () =>
-      `curl -fsSL ${origin}/api/public/connector/install/linux | sudo MIKROMAGIC_BASE_URL=${origin} bash -s ${pairing}`,
-    [pairing],
-  );
-  const setupCmd = useMemo(
-    () =>
-      os === "windows"
-        ? `node "$env:ProgramData\\MikroMagicConnector\\connector-setup.mjs"`
-        : os === "macos"
-          ? `sudo node "/Library/Application Support/MikroMagicConnector/connector-setup.mjs"`
-          : `sudo node /opt/mikromagic-connector/connector-setup.mjs`,
-    [os],
-  );
+  const steps = [
+    { id: 1, label: "Identity", icon: "🆔" },
+    { id: 2, label: "Environment", icon: "💻" },
+    { id: 3, label: "Finalize", icon: "✨" },
+  ];
 
   return (
-    <section className="glass-panel space-y-4 rounded-2xl p-4">
-      <header className="space-y-1">
-        <h2 className="text-lg font-semibold">{t.label("Guided connector setup")}</h2>
-        <p className="text-xs text-muted-foreground">
-          {t.copy(
-            "Four steps: name the connector, mint a one-time pairing code, install the agent on a machine inside the customer LAN, then confirm it is online and bind your devices.",
-          )}
-        </p>
-      </header>
+    <div className="relative mx-auto max-w-2xl space-y-6 p-4">
+      {/* Stepper */}
+      <div className="flex items-center justify-between px-4 py-2">
+        {steps.map((s, i) => (
+          <div key={s.id} className="flex items-center gap-2">
+            <div className={`flex h-8 w-8 items-center justify-center rounded-full border transition-all ${
+              step === s.id ? "border-primary bg-primary text-primary-foreground shadow-[0_0_10px_var(--color-primary)]" : 
+              step > s.id ? "border-emerald-500 bg-emerald-500/20 text-emerald-400" : "border-border text-muted-foreground"
+            }`}>
+              {step > s.id ? "✓" : s.id}
+            </div>
+            <span className={`text-xs font-medium ${step === s.id ? "text-foreground" : "text-muted-foreground"}`}>
+              {s.label}
+            </span>
+            {i < steps.length - 1 && <div className={`h-px flex-1 mx-2 ${step > s.id ? "bg-emerald-500/40" : "bg-border"}`} />}
+          </div>
+        ))}
+      </div>
 
-      <Stepper step={step} maxReached={maxReached} onJump={go} />
-
+      {/* Step 1: Identity */}
       {step === 1 && (
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold">{t.label("Name the connector")}</h3>
-          <p className="text-xs text-muted-foreground">
-            {t.copy(
-              "Use the site name so you can tell bridges apart later, for example “Main site bridge”.",
-            )}
-          </p>
-          <input
-            className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
-            placeholder="Main site bridge"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <button
-            type="button"
-            disabled={!name.trim() || createMut.isPending}
-            onClick={() => createMut.mutate()}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
-          >
-            {createMut.isPending ? "Creating…" : "Create connector"}
-          </button>
-        </div>
-      )}
-
-      {step === 2 && (
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold">{t.label("Pairing code")}</h3>
-          <p className="text-xs text-muted-foreground">
-            {t.copy(
-              "The pairing code is shown once and expires in 30 minutes. The agent exchanges it for a permanent token on first contact.",
-            )}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={!id || codeMut.isPending}
-              onClick={() => codeMut.mutate()}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
-            >
-              {codeMut.isPending ? "Generating…" : "Generate pairing code"}
-            </button>
-            <button
-              type="button"
-              onClick={() => go(1)}
-              className="rounded-md border border-border px-4 py-2 text-sm"
-            >
-              Back
-            </button>
-          </div>
-        </div>
-      )}
-
-      {step === 3 && (
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold">{t.label("Install the agent")}</h3>
-          <p className="text-xs text-muted-foreground">
-            {t.copy(
-              "Run the command on any always-on Windows or macOS machine in the same LAN as the routers and access points. It installs a background service that only makes outbound HTTPS calls — no port forwarding.",
-            )}
-          </p>
-          {code && (
-            <div className="rounded-md border border-primary/40 bg-primary/5 px-3 py-2 text-xs">
-              <p className="text-muted-foreground">
-                {t.copy("One-time pairing code (valid 30 minutes, shown once):")}
-              </p>
-              <p className="mt-1 font-mono text-base tracking-widest">{code}</p>
-            </div>
-          )}
-          <div className="flex gap-1 rounded-full border border-border p-1 text-xs w-fit">
-            {(["windows", "macos", "linux"] as const).map((o) => (
-              <button
-                key={o}
-                type="button"
-                onClick={() => setOs(o)}
-                className={`rounded-full px-3 py-1 ${
-                  os === o ? "bg-primary text-primary-foreground" : "text-muted-foreground"
-                }`}
+        <div className="group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-2xl transition-all hover:border-primary/30">
+          <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-primary/10 blur-3xl" />
+          <div className="relative z-10">
+            <h2 className="text-xl font-semibold mb-2">Name your Connector</h2>
+            <p className="text-sm text-muted-foreground mb-6">Give this connector a friendly name (e.g. "Main Site Bridge") to identify it in your fleet.</p>
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/70">Connector Name</span>
+                <input
+                  className="input w-full min-h-[44px] rounded-xl bg-black/20 border-white/10 focus:border-primary transition-all"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Yangon Central Office"
+                />
+              </div>
+              <button 
+                onClick={() => setStep(2)} 
+                disabled={!name.trim()}
+                className="btn-primary w-full min-h-[44px] rounded-xl transition-all disabled:opacity-50"
               >
-                {o === "windows" ? "Windows" : o === "macos" ? "macOS" : "Linux"}
+                Continue to Environment
               </button>
-            ))}
-          </div>
-          <CopyBox
-            label={
-              os === "windows" ? t.copy("Run in an elevated PowerShell") : t.copy("Run in Terminal")
-            }
-            value={os === "windows" ? windowsCmd : os === "macos" ? macCmd : linuxCmd}
-          />
-
-          <div className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs space-y-2">
-            <p className="font-medium text-amber-200">
-              {t.copy("Then set the router up locally on that same machine")}
-            </p>
-            <p className="text-muted-foreground">
-              {t.copy(
-                "Plug an Ethernet cable from that computer into any RB4011 LAN port (ether2 – ether10) yourself — this is a manual step the app cannot perform. Then run the local setup tool. It asks for the router username and password on that computer only: they are never typed into this page and never sent to MikroMagic.",
-              )}
-            </p>
-            <CopyBox label={t.copy("Local setup tool")} value={setupCmd} />
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => go(4)}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-            >
-              Next
-            </button>
-            <button
-              type="button"
-              onClick={() => go(2)}
-              className="rounded-md border border-border px-4 py-2 text-sm"
-            >
-              Back
-            </button>
+            </div>
           </div>
         </div>
       )}
 
-      {step === 4 && (
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold">{t.label("Verify & bind devices")}</h3>
-          <p className="text-xs text-muted-foreground">
-            {t.copy(
-              "The agent heartbeats every 30 seconds. Once it shows Online, open Routers or Advanced → AP integrations, pick “Local Connector” as the connection method and select this connector.",
-            )}
-          </p>
-          <div className="rounded-md border border-border/60 bg-surface/50 px-3 py-2 text-xs">
-            <div>
-              <span className="text-muted-foreground">{t.label("Status")}: </span>
-              {current
-                ? current.online
-                  ? t.copy("Online")
-                  : t.copy("Waiting for first heartbeat…")
-                : "—"}
+      {/* Step 2: Environment */}
+      {step === 2 && (
+        <div className="group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-2xl transition-all hover:border-primary/30">
+          <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-primary/10 blur-3xl" />
+          <div className="relative z-10">
+            <h2 className="text-xl font-semibold mb-2">Select Operating System</h2>
+            <p className="text-sm text-muted-foreground mb-6">We'll provide the correct installation script based on your host machine's OS.</p>
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              {(['windows', 'macos'] as const).map(o => (
+                <button
+                  key={o}
+                  onClick={() => setOs(o)}
+                  className={`p-4 rounded-2xl border transition-all text-left ${
+                    os === o ? "border-primary bg-primary/20 ring-1 ring-primary" : "border-white/10 bg-white/5 hover:bg-white/10"
+                  }`}
+                >
+                  <div className="text-lg font-semibold capitalize">{o}</div>
+                  <div className="text-xs text-muted-foreground opacity-60">
+                    {o === 'windows' ? 'PowerShell install' : 'Bash/Curl install'}
+                  </div>
+                </button>
+              ))}
             </div>
-            <div>
-              <span className="text-muted-foreground">{t.label("Last seen")}: </span>
-              {current?.last_seen_at
-                ? new Date(current.last_seen_at).toLocaleString()
-                : t.copy("Never")}
+            <div className="flex gap-3">
+              <button onClick={() => setStep(1)} className="btn-ghost flex-1 min-h-[44px] rounded-xl">Back</button>
+              <button onClick={() => setStep(3)} className="btn-primary flex-1 min-h-[44px] rounded-xl">Next</button>
             </div>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={!id || testMut.isPending}
-              onClick={() => testMut.mutate()}
-              className="rounded-md border border-border px-4 py-2 text-sm hover:border-primary hover:text-primary disabled:opacity-50"
-            >
-              {testMut.isPending ? "Testing…" : "Test connection"}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setStep(1);
-                setMaxReached(1);
-                setName("");
-                setId(null);
-                setCode("");
-                onDone?.();
-              }}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-            >
-              Finish
-            </button>
           </div>
         </div>
       )}
-    </section>
+
+      {/* Step 3: Finalize */}
+      {step === 3 && (
+        <div className="group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-2xl transition-all hover:border-primary/30">
+          <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-primary/10 blur-3xl" />
+          <div className="relative z-10">
+            <h2 className="text-xl font-semibold mb-2">Ready to Pair</h2>
+            <p className="text-sm text-muted-foreground mb-6">Confirm your settings and create the connector record in the cloud.</p>
+            
+            <div className="space-y-3 mb-6">
+              <div className="flex justify-between p-3 rounded-xl bg-black/20 border border-white/5">
+                <span className="text-xs text-muted-foreground">Name</span>
+                <span className="text-xs font-medium">{name}</span>
+              </div>
+              <div className="flex justify-between p-3 rounded-xl bg-black/20 border border-white/5">
+                <span className="text-xs text-muted-foreground">OS</span>
+                <span className="text-xs font-medium capitalize">{os}</span>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={() => setStep(2)} className="btn-ghost flex-1 min-h-[44px] rounded-xl">Back</button>
+              <button 
+                onClick={() => addMutation.mutate(name)} 
+                disabled={addMutation.isPending}
+                className="btn-primary flex-1 min-h-[44px] rounded-xl transition-all disabled:opacity-50"
+              >
+                {addMutation.isPending ? "Creating..." : "Create Connector"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

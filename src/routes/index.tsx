@@ -67,6 +67,55 @@ function buildThumbDataUri(gradient: [string, string], svgInner: string): string
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
+function TrustFortress() {
+  const pillars = [
+    {
+      title: "End-to-End Tunneling",
+      body: "Our Local Connector creates a secure, outbound-only tunnel. Your router is never exposed to the public internet.",
+      icon: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />',
+      gradient: "from-blue-500/20 to-cyan-500/20"
+    },
+    {
+      title: "Zero-Knowledge Privacy",
+      body: "Credentials are encrypted at the edge. We cannot read your passwords; they are only decrypted by the tunnel agent.",
+      icon: '<path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" /><path d="M12 7V3" />',
+      gradient: "from-purple-500/20 to-pink-500/20"
+    },
+    {
+      title: "AES-256 Standards",
+      body: "All data in transit is wrapped in military-grade encryption, ensuring your network management is impervious to interception.",
+      icon: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><circle cx="12" cy="12" r="3" />',
+      gradient: "from-emerald-500/20 to-teal-500/20"
+    }
+  ];
+
+  return (
+    <section className="mt-24 mb-12">
+      <div className="text-center mb-12">
+        <span className="eyebrow">Absolute Sovereignty</span>
+        <h2 className="text-title mt-4 text-3xl font-bold">Engineered for Trust.</h2>
+        <p className="text-sub mt-2 opacity-60">Your network is your fortress. We provide the keys, you keep the lock.</p>
+      </div>
+      <div className="grid gap-6 sm:grid-cols-3">
+        {pillars.map((p, i) => (
+          <div key={i} className={`relative group overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-xl transition-all hover:border-primary/40`}>
+            <div className={`absolute inset-0 bg-gradient-to-br ${p.gradient} opacity-0 transition-opacity group-hover:opacity-100`} />
+            <div className="relative z-10">
+              <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  {p.icon}
+                </svg>
+              </div>
+              <h3 className="text-title text-lg font-semibold mb-2">{p.title}</h3>
+              <p className="text-sub text-sm leading-relaxed opacity-70">{p.body}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function Landing() {
   const features: Feature[] = [
     {
@@ -303,7 +352,8 @@ function Landing() {
           </div>
         </section>
 
-        <section id="support" aria-labelledby="support-heading" className="mt-14">
+        <TrustFortress />
+<section id="support" aria-labelledby="support-heading" className="mt-14">
           <article className="panel p-6 sm:p-8">
             <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
               <div className="max-w-xl">

@@ -86,6 +86,7 @@ export const saveRouter = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((raw: unknown) => upsertSchema.parse(raw))
   .handler(async ({ data, context }) => {
+    await enforceTierLimit(context.supabase, context.userId, 'add_router');
     const { encryptSecret } = await import("./crypto.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { getRoles, isPrivilegedAccount, isPlatformAdminUser, requireNotExpired } =

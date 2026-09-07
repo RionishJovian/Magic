@@ -210,7 +210,6 @@ export async function runHealthSweepForOwner(ownerId: string) {
     }
   }
 
-  // Protected routers are omitted from both probing and incident mutation.
   const toResolve = resolvableIncidents(signals, open).filter(
     (incident) => !excluded.has(incident.subjectId),
   );

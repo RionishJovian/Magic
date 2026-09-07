@@ -164,6 +164,8 @@ export function NotificationsBell({ enabled }: { enabled: boolean }) {
                 client_name?: string;
                 client_email?: string;
                 expired_at?: string;
+                router_id?: string;
+                incident_id?: string;
               };
               const expiredAt = d.expired_at ? new Date(d.expired_at) : new Date(n.created_at);
               const tone = noticeToneForKind(n.kind);
@@ -182,10 +184,15 @@ export function NotificationsBell({ enabled }: { enabled: boolean }) {
                 >
                   <button
                     type="button"
-                    onClick={() => !n.read_at && markOneMut.mutate(n.id)}
+                    onClick={() => {
+                      if (!n.read_at) markOneMut.mutate(n.id);
+                      if (d.router_id) {
+                        window.location.href = `/fleet/health/${d.router_id}`;
+                      }
+                    }}
                     className="min-w-0 flex-1 text-left"
                   >
-                    <div className="flex items-start justify-between gap-2">
+                    <div className={`flex items-start justify-between gap-2`}>
                       <div className={`font-semibold ${titleClass}`}>
                         <span className="mr-1" aria-hidden>
                           {NOTICE_ICON[tone]}
