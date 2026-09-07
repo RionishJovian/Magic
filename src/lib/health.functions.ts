@@ -18,6 +18,8 @@ const incidentKind = z.enum([
   "router_anomaly",
   "wan_saturated",
   "vpn_peer_down",
+  "router_cpu_high",
+  "router_memory_high",
 ]);
 
 export const listHealthHistory = createServerFn({ method: "POST" })
@@ -36,7 +38,7 @@ export const listHealthHistory = createServerFn({ method: "POST" })
     let q = context.supabase
       .from("device_health_samples")
       .select(
-        "id, subject_kind, subject_id, site_id, device_id, router_id, reachable, latency_ms, uptime_seconds, wan_state, connector_state, tunnel_state, observed_at",
+        "id, subject_kind, subject_id, site_id, device_id, router_id, reachable, latency_ms, uptime_seconds, cpu_usage_pct, memory_usage_pct, free_memory_bytes, total_memory_bytes, wan_state, connector_state, tunnel_state, observed_at",
       )
       .order("observed_at", { ascending: false })
       .limit(data.limit ?? 200);
@@ -58,144 +60,8 @@ export const runHealthSweep = createServerFn({ method: "POST" })
     const guards = await import("./guards.server");
     await guards.requireNotExpired(context.supabase, context.userId);
     const ownerId = await guards.effectiveOwner(context.supabase, context.userId);
-    const { supabase } = context;
-
-    const [routersRes, connectorsRes, rulesRes, openRes] = await Promise.all([
-      supabase.from("router_connections").select("id, name, site_id, connection_mode"),
-      supabase.from("connectors").select("id, name, status, last_seen_at, enabled"),
-      supabase.from("alert_rules").select("kind, enabled, severity, cooldown_minutes, threshold"),
-      supabase
-        .from("incidents")
-        .select("id, kind, subject_id, last_notified_at, resolved_at")
-        .is("resolved_at", null),
-    ]);
-
-    const { routersStatusFor } = await import("./health.server");
-    const probes = await routersStatusFor(supabase, routersRes.data ?? []);
-
-    const samples = probes.map((p) => ({
-      owner_id: ownerId,
-      site_id: p.siteId,
-      router_id: p.id,
-      subject_kind: "router" as const,
-      subject_id: p.id,
-      reachable: p.online,
-      latency_ms: p.latencyMs,
-      uptime_seconds: p.uptimeSeconds,
-      wan_state: p.wanState,
-      tunnel_state: p.tunnelState,
-      connector_state: null,
-      detail: {},
-    }));
-
-    const now = Date.now();
-    for (const c of connectorsRes.data ?? []) {
-      if (!c["enabled"]) continue;
-      const seen = c["last_seen_at"] ? Date.parse(c["last_seen_at"]) : null;
-      const stale = seen === null || now - seen > 10 * 60_000;
-      samples.push({
-        owner_id: ownerId,
-        site_id: null,
-        router_id: null,
-        subject_kind: "connector" as never,
-        subject_id: c["id"],
-        reachable: !stale,
-        latency_ms: null,
-        uptime_seconds: null,
-        wan_state: null,
-        tunnel_state: null,
-        connector_state: stale ? "stale" : "online",
-        detail: {},
-      } as never);
-    }
-
-    if (samples.length) {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      await supabaseAdmin.from("device_health_samples").insert(samples);
-    }
-
-    // Build signals. `consecutive` comes from the stored history so a single
-    // blip never raises an incident.
-    const { data: recent } = await supabase
-      .from("device_health_samples")
-      .select("subject_kind, subject_id, reachable, wan_state, connector_state, observed_at")
-      .order("observed_at", { ascending: false })
-      .limit(600);
-
-    const { buildSignals } = await import("./health.server");
-    const signals = buildSignals(recent ?? [], probes, connectorsRes.data ?? []);
-
-    const { decideIncidents, resolvableIncidents, defaultRules, INCIDENT_KINDS } =
-      await import("./alerts/rules");
-    const rules = (rulesRes.data ?? []).length
-      ? (rulesRes.data ?? []).flatMap((r) => {
-          const kind = INCIDENT_KINDS.find((value) => value === r.kind);
-          const level = severity.safeParse(r.severity);
-          if (!kind || !level.success) return [];
-          return [
-            {
-              kind,
-              enabled: r.enabled,
-              severity: level.data,
-              cooldownMinutes: r.cooldown_minutes,
-              threshold: r.threshold,
-            },
-          ];
-        })
-      : defaultRules();
-    const open = (openRes.data ?? []).flatMap((i) => {
-      const kind = INCIDENT_KINDS.find((value) => value === i.kind);
-      if (!kind) return [];
-      return [
-        {
-          kind,
-          subjectId: i.subject_id,
-          lastNotifiedAt: i.last_notified_at,
-          resolvedAt: i.resolved_at,
-        },
-      ];
-    });
-
-    const decisions = decideIncidents(signals, rules, open, now);
-    const created = decisions.filter((d) => d.action === "create");
-
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    if (created.length) {
-      await supabaseAdmin.from("incidents").upsert(
-        created.map((d) => ({
-          owner_id: ownerId,
-          kind: d.signal.kind,
-          severity: (d as { severity: string }).severity,
-          subject_id: d.signal.subjectId,
-          subject_label: d.signal.subjectLabel,
-          detail: d.signal.detail ?? null,
-          last_seen_at: new Date().toISOString(),
-          last_notified_at: new Date().toISOString(),
-        })),
-        { onConflict: "owner_id,kind,subject_id", ignoreDuplicates: true },
-      );
-    }
-
-    const toResolve = resolvableIncidents(signals, open);
-    if (toResolve.length) {
-      for (const inc of toResolve) {
-        await supabaseAdmin
-          .from("incidents")
-          .update({ resolved_at: new Date().toISOString() })
-          .eq("owner_id", ownerId)
-          .eq("kind", inc.kind)
-          .eq("subject_id", inc.subjectId)
-          .is("resolved_at", null);
-      }
-    }
-
-    return {
-      sampled: samples.length,
-      opened: created.length,
-      resolved: toResolve.length,
-      suppressed: decisions.length - created.length,
-      observedAt: new Date().toISOString(),
-    };
+    const { runHealthSweepForOwner } = await import("./monitoring.server");
+    return runHealthSweepForOwner(ownerId);
   });
 
 export const listIncidents = createServerFn({ method: "POST" })

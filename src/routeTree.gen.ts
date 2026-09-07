@@ -65,6 +65,7 @@ import { Route as AuthenticatedAppTestLabIndexRouteImport } from './routes/_auth
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 import { Route as ApiPublicHooksVoucherMaintenanceRouteImport } from './routes/api/public/hooks/voucher-maintenance'
+import { Route as ApiPublicHooksRouterHealthRouteImport } from './routes/api/public/hooks/router-health'
 import { Route as ApiPublicHooksFleetAiScanRouteImport } from './routes/api/public/hooks/fleet-ai-scan'
 import { Route as ApiPublicHooksDbBackupRouteImport } from './routes/api/public/hooks/db-backup'
 import { Route as ApiPublicConnectorVersionRouteImport } from './routes/api/public/connector/version'
@@ -384,6 +385,12 @@ const ApiPublicHooksVoucherMaintenanceRoute =
     path: '/api/public/hooks/voucher-maintenance',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksRouterHealthRoute =
+  ApiPublicHooksRouterHealthRouteImport.update({
+    id: '/api/public/hooks/router-health',
+    path: '/api/public/hooks/router-health',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksFleetAiScanRoute =
   ApiPublicHooksFleetAiScanRouteImport.update({
     id: '/api/public/hooks/fleet-ai-scan',
@@ -569,6 +576,7 @@ export interface FileRoutesByFullPath {
   '/api/public/connector/version': typeof ApiPublicConnectorVersionRoute
   '/api/public/hooks/db-backup': typeof ApiPublicHooksDbBackupRoute
   '/api/public/hooks/fleet-ai-scan': typeof ApiPublicHooksFleetAiScanRoute
+  '/api/public/hooks/router-health': typeof ApiPublicHooksRouterHealthRoute
   '/api/public/hooks/voucher-maintenance': typeof ApiPublicHooksVoucherMaintenanceRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -644,6 +652,7 @@ export interface FileRoutesByTo {
   '/api/public/connector/version': typeof ApiPublicConnectorVersionRoute
   '/api/public/hooks/db-backup': typeof ApiPublicHooksDbBackupRoute
   '/api/public/hooks/fleet-ai-scan': typeof ApiPublicHooksFleetAiScanRoute
+  '/api/public/hooks/router-health': typeof ApiPublicHooksRouterHealthRoute
   '/api/public/hooks/voucher-maintenance': typeof ApiPublicHooksVoucherMaintenanceRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -723,6 +732,7 @@ export interface FileRoutesById {
   '/api/public/connector/version': typeof ApiPublicConnectorVersionRoute
   '/api/public/hooks/db-backup': typeof ApiPublicHooksDbBackupRoute
   '/api/public/hooks/fleet-ai-scan': typeof ApiPublicHooksFleetAiScanRoute
+  '/api/public/hooks/router-health': typeof ApiPublicHooksRouterHealthRoute
   '/api/public/hooks/voucher-maintenance': typeof ApiPublicHooksVoucherMaintenanceRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -802,6 +812,7 @@ export interface FileRouteTypes {
     | '/api/public/connector/version'
     | '/api/public/hooks/db-backup'
     | '/api/public/hooks/fleet-ai-scan'
+    | '/api/public/hooks/router-health'
     | '/api/public/hooks/voucher-maintenance'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -877,6 +888,7 @@ export interface FileRouteTypes {
     | '/api/public/connector/version'
     | '/api/public/hooks/db-backup'
     | '/api/public/hooks/fleet-ai-scan'
+    | '/api/public/hooks/router-health'
     | '/api/public/hooks/voucher-maintenance'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -955,6 +967,7 @@ export interface FileRouteTypes {
     | '/api/public/connector/version'
     | '/api/public/hooks/db-backup'
     | '/api/public/hooks/fleet-ai-scan'
+    | '/api/public/hooks/router-health'
     | '/api/public/hooks/voucher-maintenance'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -992,6 +1005,7 @@ export interface RootRouteChildren {
   ApiPublicConnectorVersionRoute: typeof ApiPublicConnectorVersionRoute
   ApiPublicHooksDbBackupRoute: typeof ApiPublicHooksDbBackupRoute
   ApiPublicHooksFleetAiScanRoute: typeof ApiPublicHooksFleetAiScanRoute
+  ApiPublicHooksRouterHealthRoute: typeof ApiPublicHooksRouterHealthRoute
   ApiPublicHooksVoucherMaintenanceRoute: typeof ApiPublicHooksVoucherMaintenanceRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
@@ -1396,6 +1410,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksVoucherMaintenanceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/router-health': {
+      id: '/api/public/hooks/router-health'
+      path: '/api/public/hooks/router-health'
+      fullPath: '/api/public/hooks/router-health'
+      preLoaderRoute: typeof ApiPublicHooksRouterHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/fleet-ai-scan': {
       id: '/api/public/hooks/fleet-ai-scan'
       path: '/api/public/hooks/fleet-ai-scan'
@@ -1692,6 +1713,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicConnectorVersionRoute: ApiPublicConnectorVersionRoute,
   ApiPublicHooksDbBackupRoute: ApiPublicHooksDbBackupRoute,
   ApiPublicHooksFleetAiScanRoute: ApiPublicHooksFleetAiScanRoute,
+  ApiPublicHooksRouterHealthRoute: ApiPublicHooksRouterHealthRoute,
   ApiPublicHooksVoucherMaintenanceRoute: ApiPublicHooksVoucherMaintenanceRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,

@@ -16,6 +16,8 @@ export const INCIDENT_KINDS = [
   "router_anomaly",
   "wan_saturated",
   "vpn_peer_down",
+  "router_cpu_high",
+  "router_memory_high",
 ] as const;
 export type IncidentKind = (typeof INCIDENT_KINDS)[number];
 
@@ -30,6 +32,8 @@ export const INCIDENT_LABEL: Record<IncidentKind, string> = {
   router_anomaly: "Router anomaly",
   wan_saturated: "WAN link saturated",
   vpn_peer_down: "VPN peer down",
+  router_cpu_high: "Router CPU usage high",
+  router_memory_high: "Router memory usage high",
 };
 
 export type Severity = "info" | "warning" | "critical";
@@ -45,6 +49,8 @@ export const DEFAULT_SEVERITY: Record<IncidentKind, Severity> = {
   router_anomaly: "warning",
   wan_saturated: "warning",
   vpn_peer_down: "warning",
+  router_cpu_high: "critical",
+  router_memory_high: "warning",
 };
 
 /** Minutes an identical incident stays suppressed after the last notification. */
@@ -59,6 +65,8 @@ export const DEFAULT_COOLDOWN_MIN: Record<IncidentKind, number> = {
   router_anomaly: 30,
   wan_saturated: 20,
   vpn_peer_down: 15,
+  router_cpu_high: 30,
+  router_memory_high: 60,
 };
 
 export type AlertRule = {

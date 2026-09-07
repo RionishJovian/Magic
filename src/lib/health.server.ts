@@ -21,6 +21,10 @@ export type RouterProbe = {
   online: boolean;
   latencyMs: number | null;
   uptimeSeconds: number | null;
+  cpuUsagePct: number | null;
+  memoryUsagePct: number | null;
+  freeMemoryBytes: number | null;
+  totalMemoryBytes: number | null;
   wanState: "up" | "degraded" | "down" | "unknown";
   tunnelState: "up" | "down" | "none";
   error: string | null;
@@ -44,9 +48,11 @@ function uptimeToSeconds(v: unknown): number | null {
 export async function routersStatusFor(
   supabase: DatabaseClient,
   routers: readonly RouterRow[],
+  ownerId?: string,
 ): Promise<RouterProbe[]> {
-  const { loadRouterConn } = await import("./router-conn.server");
+  const { loadRouterConn, loadRouterConnForOwner } = await import("./router-conn.server");
   const { routerAPI } = await import("./mikrotik.server");
+  const { memoryUsedPercent, parseCpuLoad, toBytes } = await import("./fleet-health");
 
   return Promise.all(
     routers.map(async (r): Promise<RouterProbe> => {
@@ -54,8 +60,15 @@ export async function routersStatusFor(
       // tunnelState retained for alert-history shape; agentless DIY tunnel is gone.
       const tunnelState: RouterProbe["tunnelState"] = "none";
       try {
-        const conn = await loadRouterConn(supabase, r.id);
+        const conn = ownerId
+          ? await loadRouterConnForOwner(supabase, r.id, ownerId)
+          : await loadRouterConn(supabase, r.id);
         const res = await routerAPI.raw<Record<string, string>>(conn, "/system/resource");
+        const cpuUsagePct = parseCpuLoad(res?.["cpu-load"]) ?? null;
+        const freeMemoryBytes = toBytes(res?.["free-memory"]) ?? null;
+        const totalMemoryBytes = toBytes(res?.["total-memory"]) ?? null;
+        const memoryUsagePct =
+          memoryUsedPercent(totalMemoryBytes ?? undefined, freeMemoryBytes ?? undefined) ?? null;
         const latency = Date.now() - started;
         let wanState: RouterProbe["wanState"] = "unknown";
         try {
@@ -73,6 +86,10 @@ export async function routersStatusFor(
           online: true,
           latencyMs: latency,
           uptimeSeconds: uptimeToSeconds(res?.["uptime"]),
+          cpuUsagePct,
+          memoryUsagePct,
+          freeMemoryBytes,
+          totalMemoryBytes,
           wanState,
           tunnelState,
           error: null,
@@ -85,6 +102,10 @@ export async function routersStatusFor(
           online: false,
           latencyMs: null,
           uptimeSeconds: null,
+          cpuUsagePct: null,
+          memoryUsagePct: null,
+          freeMemoryBytes: null,
+          totalMemoryBytes: null,
           wanState: "unknown",
           tunnelState,
           error: err instanceof Error ? err.message : String(err),
@@ -100,6 +121,8 @@ type HistoryRow = {
   reachable: boolean | null;
   wan_state: string | null;
   connector_state: string | null;
+  cpu_usage_pct?: number | null;
+  memory_usage_pct?: number | null;
   observed_at: string;
 };
 
@@ -157,6 +180,30 @@ export function buildSignals(
           ),
         ),
         detail: `Internet uplink is ${p.wanState}.`,
+      });
+    }
+    if (p.cpuUsagePct !== null && p.cpuUsagePct >= 85) {
+      out.push({
+        kind: "router_cpu_high",
+        subjectId: p.id,
+        subjectLabel: p.name,
+        consecutive: Math.max(
+          1,
+          consecutiveFailures(history, "router", p.id, (r) => (r.cpu_usage_pct ?? 0) >= 85),
+        ),
+        detail: `CPU usage is ${p.cpuUsagePct.toFixed(1)}%. Inspect active traffic and processes; no command was run automatically.`,
+      });
+    }
+    if (p.memoryUsagePct !== null && p.memoryUsagePct >= 90) {
+      out.push({
+        kind: "router_memory_high",
+        subjectId: p.id,
+        subjectLabel: p.name,
+        consecutive: Math.max(
+          1,
+          consecutiveFailures(history, "router", p.id, (r) => (r.memory_usage_pct ?? 0) >= 90),
+        ),
+        detail: `Memory usage is ${p.memoryUsagePct.toFixed(1)}%. Review services and logs; no reboot was run automatically.`,
       });
     }
   }

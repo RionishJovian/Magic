@@ -778,11 +778,14 @@ export type Database = {
       }
       device_health_samples: {
         Row: {
+          cpu_usage_pct: number | null
           connector_state: string | null
           detail: Json
           device_id: string | null
           id: string
           latency_ms: number | null
+          free_memory_bytes: number | null
+          memory_usage_pct: number | null
           observed_at: string
           owner_id: string
           reachable: boolean | null
@@ -791,15 +794,19 @@ export type Database = {
           subject_id: string
           subject_kind: string
           tunnel_state: string | null
+          total_memory_bytes: number | null
           uptime_seconds: number | null
           wan_state: string | null
         }
         Insert: {
+          cpu_usage_pct?: number | null
           connector_state?: string | null
           detail?: Json
           device_id?: string | null
           id?: string
           latency_ms?: number | null
+          free_memory_bytes?: number | null
+          memory_usage_pct?: number | null
           observed_at?: string
           owner_id: string
           reachable?: boolean | null
@@ -808,15 +815,19 @@ export type Database = {
           subject_id: string
           subject_kind: string
           tunnel_state?: string | null
+          total_memory_bytes?: number | null
           uptime_seconds?: number | null
           wan_state?: string | null
         }
         Update: {
+          cpu_usage_pct?: number | null
           connector_state?: string | null
           detail?: Json
           device_id?: string | null
           id?: string
           latency_ms?: number | null
+          free_memory_bytes?: number | null
+          memory_usage_pct?: number | null
           observed_at?: string
           owner_id?: string
           reachable?: boolean | null
@@ -825,6 +836,7 @@ export type Database = {
           subject_id?: string
           subject_kind?: string
           tunnel_state?: string | null
+          total_memory_bytes?: number | null
           uptime_seconds?: number | null
           wan_state?: string | null
         }
