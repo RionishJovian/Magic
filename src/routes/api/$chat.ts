@@ -36,16 +36,57 @@ function startOfAppDay() {
   return new Date(appNow.getTime() - offsetMinutes * 60_000).toISOString();
 }
 
-async function buildSafeContext(supabase: Parameters<typeof requireMagicDudeAccess>[0]["supabase"], userId: string) {
+async function buildSafeContext(
+  supabase: Parameters<typeof requireMagicDudeAccess>[0]["supabase"],
+  userId: string,
+) {
   const { effectiveOwner } = await import("@/lib/guards.server");
   const ownerId = await effectiveOwner(supabase, userId);
-  const [{ data: routers }, { data: codes }, { data: incidents }, { data: deploys }, { data: sales }, { data: orders }] = await Promise.all([
-    supabase.from("router_connections").select("id, name, connection_mode, site_id").eq("owner_id", ownerId).limit(50),
-    supabase.from("voucher_codes").select("router_id, status, plan_key, plan_label, price_mmk, first_seen_at, expires_at, created_at, site_id, order_id").eq("owner_id", ownerId).neq("status", "cancelled").limit(5_000),
-    supabase.from("incidents").select("kind, severity, subject_label, detail, last_seen_at").eq("owner_id", ownerId).order("last_seen_at", { ascending: false }).limit(20),
-    supabase.from("portal_deploy_audit").select("router_id, ok, created_at, error").eq("owner_id", ownerId).order("created_at", { ascending: false }).limit(20),
-    supabase.from("voucher_sales").select("id, code, profile, price_cents, currency, sold_at, site_id, router_id").eq("owner_id", ownerId).limit(5_000),
-    supabase.from("payment_orders").select("id, status, method, amount_minor, plan_label, issued_code, site_id, router_id, settled_at, refunded_at, created_at").eq("owner_id", ownerId).limit(5_000),
+  const [
+    { data: routers },
+    { data: codes },
+    { data: incidents },
+    { data: deploys },
+    { data: sales },
+    { data: orders },
+  ] = await Promise.all([
+    supabase
+      .from("router_connections")
+      .select("id, name, connection_mode, site_id")
+      .eq("owner_id", ownerId)
+      .limit(50),
+    supabase
+      .from("voucher_codes")
+      .select(
+        "router_id, status, plan_key, plan_label, price_mmk, first_seen_at, expires_at, created_at, site_id, order_id",
+      )
+      .eq("owner_id", ownerId)
+      .neq("status", "cancelled")
+      .limit(5_000),
+    supabase
+      .from("incidents")
+      .select("kind, severity, subject_label, detail, last_seen_at")
+      .eq("owner_id", ownerId)
+      .order("last_seen_at", { ascending: false })
+      .limit(20),
+    supabase
+      .from("portal_deploy_audit")
+      .select("router_id, ok, created_at, error")
+      .eq("owner_id", ownerId)
+      .order("created_at", { ascending: false })
+      .limit(20),
+    supabase
+      .from("voucher_sales")
+      .select("id, code, profile, price_cents, currency, sold_at, site_id, router_id")
+      .eq("owner_id", ownerId)
+      .limit(5_000),
+    supabase
+      .from("payment_orders")
+      .select(
+        "id, status, method, amount_minor, plan_label, issued_code, site_id, router_id, settled_at, refunded_at, created_at",
+      )
+      .eq("owner_id", ownerId)
+      .limit(5_000),
   ]);
 
   const routerIds = new Set((routers ?? []).map((router) => router.id));
@@ -118,7 +159,10 @@ export const Route = createFileRoute("/api/$chat")({
           await requireMagicDudeAccess(auth);
         } catch (error) {
           const message = error instanceof Error ? error.message : "Unauthorized";
-          return Response.json({ error: message }, { status: message === "Unauthorized" ? 401 : 403 });
+          return Response.json(
+            { error: message },
+            { status: message === "Unauthorized" ? 401 : 403 },
+          );
         }
 
         const rawBody = await request.json().catch(() => null);
@@ -127,18 +171,34 @@ export const Route = createFileRoute("/api/$chat")({
           try {
             action = voucherActionSchema.parse(rawBody);
           } catch {
-            return Response.json({ error: "Choose a plan, router, and quantity before creating vouchers." }, { status: 400 });
+            return Response.json(
+              { error: "Choose a plan, router, and quantity before creating vouchers." },
+              { status: 400 },
+            );
           }
         }
 
         const { effectiveOwner } = await import("@/lib/guards.server");
         const ownerId = await effectiveOwner(auth.supabase, auth.userId);
         if (action?.mode === "options") {
-          const [{ data: routers, error: routerError }, { data: plans, error: planError }] = await Promise.all([
-            auth.supabase.from("router_connections").select("id, name, site_id").eq("owner_id", ownerId).eq("is_virtual", false).order("created_at", { ascending: true }),
-            auth.supabase.from("portal_plans").select("id, label, plan_key, duration_label, duration_minutes, data_quota_mb, price_mmk, status, is_vip").eq("owner_id", ownerId).order("sort", { ascending: true }),
-          ]);
-          if (routerError || planError) return Response.json({ error: "Could not load voucher options." }, { status: 500 });
+          const [{ data: routers, error: routerError }, { data: plans, error: planError }] =
+            await Promise.all([
+              auth.supabase
+                .from("router_connections")
+                .select("id, name, site_id")
+                .eq("owner_id", ownerId)
+                .eq("is_virtual", false)
+                .order("created_at", { ascending: true }),
+              auth.supabase
+                .from("portal_plans")
+                .select(
+                  "id, label, plan_key, duration_label, duration_minutes, data_quota_mb, price_mmk, status, is_vip",
+                )
+                .eq("owner_id", ownerId)
+                .order("sort", { ascending: true }),
+            ]);
+          if (routerError || planError)
+            return Response.json({ error: "Could not load voucher options." }, { status: 500 });
           return Response.json({ routers: routers ?? [], plans: plans ?? [] });
         }
         if (action?.mode === "create") {
@@ -146,7 +206,10 @@ export const Route = createFileRoute("/api/$chat")({
             const result = await issuePlanVouchersForUser(auth.supabase, auth.userId, action);
             return Response.json({ ok: true, ...result });
           } catch (error) {
-            return Response.json({ error: error instanceof Error ? error.message : "Could not create vouchers." }, { status: 400 });
+            return Response.json(
+              { error: error instanceof Error ? error.message : "Could not create vouchers." },
+              { status: 400 },
+            );
           }
         }
 
@@ -154,22 +217,35 @@ export const Route = createFileRoute("/api/$chat")({
         try {
           body = bodySchema.parse(rawBody);
         } catch {
-          return Response.json({ error: "Send up to 20 user and assistant messages." }, { status: 400 });
+          return Response.json(
+            { error: "Send up to 20 user and assistant messages." },
+            { status: 400 },
+          );
         }
 
         const [{ count: usedToday }, context] = await Promise.all([
-          auth.supabase.from("ai_usage_events").select("id", { count: "exact", head: true }).eq("user_id", auth.userId).eq("feature", "magic_dude_chat").gte("created_at", startOfAppDay()),
+          auth.supabase
+            .from("ai_usage_events")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", auth.userId)
+            .eq("feature", "magic_dude_chat")
+            .gte("created_at", startOfAppDay()),
           buildSafeContext(auth.supabase, auth.userId),
         ]);
         if ((usedToday ?? 0) >= DAILY_LIMIT) {
-          return Response.json({ error: "Magic Dude has reached today's chat limit. Try again tomorrow." }, { status: 429, headers: { "Retry-After": "3600" } });
+          return Response.json(
+            { error: "Magic Dude has reached today's chat limit. Try again tomorrow." },
+            { status: 429, headers: { "Retry-After": "3600" } },
+          );
         }
 
         const key = process.env.LOVABLE_API_KEY;
-        if (!key) return Response.json({ error: "Magic Dude is not configured yet." }, { status: 503 });
+        if (!key)
+          return Response.json({ error: "Magic Dude is not configured yet." }, { status: 503 });
 
-        const language = body.language === "my" ? "Burmese" : body.language === "zh" ? "Chinese" : "English";
-        const system = \`You are Magic Dude, the High Royal Assistant of the MikroTik Magic Empire.
+        const language =
+          body.language === "my" ? "Burmese" : body.language === "zh" ? "Chinese" : "English";
+        const system = `You are Magic Dude, the High Royal Assistant of the MikroTik Magic Empire.
 Your essence is that of a clever, noble gnome magician: warm, playful, and deeply loyal, yet possessing a sharp, sovereign intellect.
 You do not merely "assist"—you guide the users of this kingdom toward mastery.
 
@@ -188,27 +264,54 @@ MikroTik Magic product guide:
 ${MAGIC_DUDE_PRODUCT_KNOWLEDGE}
 
 Kingdom Context (Tenant-scoped):
-${JSON.stringify(context)}\`;
+${JSON.stringify(context)}`;
 
         const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: { "Content-Type": "application/json", "Lovable-API-Key": key },
-          body: JSON.stringify({ model: MODEL, messages: [{ role: "system", content: system }, ...body.messages], temperature: 0.2, max_tokens: 700 }),
+          body: JSON.stringify({
+            model: MODEL,
+            messages: [{ role: "system", content: system }, ...body.messages],
+            temperature: 0.2,
+            max_tokens: 700,
+          }),
         });
         if (!response.ok) {
-          if (response.status === 402) return Response.json({ error: "AI credits are exhausted." }, { status: 402 });
-          if (response.status === 429) return Response.json({ error: "Magic Dude is busy. Try again shortly." }, { status: 429 });
-          return Response.json({ error: "Magic Dude could not answer right now." }, { status: 502 });
+          if (response.status === 402)
+            return Response.json({ error: "AI credits are exhausted." }, { status: 402 });
+          if (response.status === 429)
+            return Response.json(
+              { error: "Magic Dude is busy. Try again shortly." },
+              { status: 429 },
+            );
+          return Response.json(
+            { error: "Magic Dude could not answer right now." },
+            { status: 502 },
+          );
         }
 
-        const result = (await response.json()) as { choices?: Array<{ message?: { content?: string } }>; usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } };
+        const result = (await response.json()) as {
+          choices?: Array<{ message?: { content?: string } }>;
+          usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+        };
         const answer = result.choices?.[0]?.message?.content?.trim();
-        if (!answer) return Response.json({ error: "Magic Dude returned an empty answer." }, { status: 502 });
+        if (!answer)
+          return Response.json({ error: "Magic Dude returned an empty answer." }, { status: 502 });
 
         const { logAiUsage } = await import("@/lib/ai-usage.server");
-        await logAiUsage({ ownerId, userId: auth.userId, feature: "magic_dude_chat", model: MODEL, usage: result.usage });
-        return Response.json({ answer, model: MODEL, remainingToday: Math.max(0, DAILY_LIMIT - (usedToday ?? 0) - 1) });
+        await logAiUsage({
+          ownerId,
+          userId: auth.userId,
+          feature: "magic_dude_chat",
+          model: MODEL,
+          usage: result.usage,
+        });
+        return Response.json({
+          answer,
+          model: MODEL,
+          remainingToday: Math.max(0, DAILY_LIMIT - (usedToday ?? 0) - 1),
+        });
       },
     },
-  }),
+  },
 });

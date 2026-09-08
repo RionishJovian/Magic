@@ -2,17 +2,17 @@
 import type { I18nReport } from "./report-types";
 
 export const i18nReport: I18nReport = {
-  "generatedAt": "2026-09-07T18:26:29.480Z",
-  "sourceHash": "0fd30ddca5f4d4f6",
+  "generatedAt": "2026-09-08T02:38:34.231Z",
+  "sourceHash": "2346a12e14101d3a",
   "sourceCounts": {
-    "ui": 261,
-    "copy": 249,
+    "ui": 256,
+    "copy": 237,
     "action": 2
   },
   "languages": {
     "zh": {
-      "total": 510,
-      "translated": 510,
+      "total": 493,
+      "translated": 493,
       "coverage": 100,
       "missing": [],
       "todo": [],
@@ -145,6 +145,26 @@ export const i18nReport: I18nReport = {
         {
           "ns": "ui",
           "key": "Connect a verified controller"
+        },
+        {
+          "ns": "ui",
+          "key": "Status"
+        },
+        {
+          "ns": "ui",
+          "key": "Guided connector setup"
+        },
+        {
+          "ns": "ui",
+          "key": "Pairing code"
+        },
+        {
+          "ns": "ui",
+          "key": "Install the agent"
+        },
+        {
+          "ns": "ui",
+          "key": "Verify & bind devices"
         },
         {
           "ns": "ui",
@@ -464,6 +484,18 @@ export const i18nReport: I18nReport = {
         },
         {
           "ns": "copy",
+          "key": "Then set the router up locally on that same machine"
+        },
+        {
+          "ns": "copy",
+          "key": "Plug an Ethernet cable from that computer into any RB4011 LAN port (ether2 – ether10) yourself — this is a manual step the app cannot perform. Then run the local setup tool. It asks for the router username and password on that computer only: they are never typed into this page and never sent to MikroMagic."
+        },
+        {
+          "ns": "copy",
+          "key": "Local setup tool"
+        },
+        {
+          "ns": "copy",
           "key": "Dark mode is the default look. Switch to light if you prefer brighter browsing — accents stay brand blue → violet either way."
         },
         {
@@ -516,6 +548,22 @@ export const i18nReport: I18nReport = {
         },
         {
           "ns": "copy",
+          "key": "Run in an elevated PowerShell"
+        },
+        {
+          "ns": "copy",
+          "key": "Run in Terminal"
+        },
+        {
+          "ns": "copy",
+          "key": "Online"
+        },
+        {
+          "ns": "copy",
+          "key": "Waiting for first heartbeat…"
+        },
+        {
+          "ns": "copy",
           "key": "No access point controllers yet."
         },
         {
@@ -552,7 +600,27 @@ export const i18nReport: I18nReport = {
         },
         {
           "ns": "copy",
+          "key": "Four steps: name the connector, mint a one-time pairing code, install the agent on a machine inside the customer LAN, then confirm it is online and bind your devices."
+        },
+        {
+          "ns": "copy",
+          "key": "Use the site name so you can tell bridges apart later, for example “Main site bridge”."
+        },
+        {
+          "ns": "copy",
+          "key": "The pairing code is shown once and expires in 30 minutes. The agent exchanges it for a permanent token on first contact."
+        },
+        {
+          "ns": "copy",
+          "key": "Run the command on any always-on Windows or macOS machine in the same LAN as the routers and access points. It installs a background service that only makes outbound HTTPS calls — no port forwarding."
+        },
+        {
+          "ns": "copy",
           "key": "The agent heartbeats every 30 seconds. Once it shows Online, open Routers or Access Points, pick “Local Connector” as the connection method and select this connector."
+        },
+        {
+          "ns": "copy",
+          "key": "The agent heartbeats every 30 seconds. Once it shows Online, open Routers or Advanced → AP integrations, pick “Local Connector” as the connection method and select this connector."
         },
         {
           "ns": "copy",
@@ -582,8 +650,8 @@ export const i18nReport: I18nReport = {
       "actionEntries": []
     },
     "my": {
-      "total": 510,
-      "translated": 510,
+      "total": 493,
+      "translated": 493,
       "coverage": 100,
       "missing": [],
       "todo": [],
@@ -716,6 +784,26 @@ export const i18nReport: I18nReport = {
         {
           "ns": "ui",
           "key": "Connect a verified controller"
+        },
+        {
+          "ns": "ui",
+          "key": "Status"
+        },
+        {
+          "ns": "ui",
+          "key": "Guided connector setup"
+        },
+        {
+          "ns": "ui",
+          "key": "Pairing code"
+        },
+        {
+          "ns": "ui",
+          "key": "Install the agent"
+        },
+        {
+          "ns": "ui",
+          "key": "Verify & bind devices"
         },
         {
           "ns": "ui",
@@ -1035,6 +1123,18 @@ export const i18nReport: I18nReport = {
         },
         {
           "ns": "copy",
+          "key": "Then set the router up locally on that same machine"
+        },
+        {
+          "ns": "copy",
+          "key": "Plug an Ethernet cable from that computer into any RB4011 LAN port (ether2 – ether10) yourself — this is a manual step the app cannot perform. Then run the local setup tool. It asks for the router username and password on that computer only: they are never typed into this page and never sent to MikroMagic."
+        },
+        {
+          "ns": "copy",
+          "key": "Local setup tool"
+        },
+        {
+          "ns": "copy",
           "key": "Dark mode is the default look. Switch to light if you prefer brighter browsing — accents stay brand blue → violet either way."
         },
         {
@@ -1087,6 +1187,22 @@ export const i18nReport: I18nReport = {
         },
         {
           "ns": "copy",
+          "key": "Run in an elevated PowerShell"
+        },
+        {
+          "ns": "copy",
+          "key": "Run in Terminal"
+        },
+        {
+          "ns": "copy",
+          "key": "Online"
+        },
+        {
+          "ns": "copy",
+          "key": "Waiting for first heartbeat…"
+        },
+        {
+          "ns": "copy",
           "key": "No access point controllers yet."
         },
         {
@@ -1123,7 +1239,27 @@ export const i18nReport: I18nReport = {
         },
         {
           "ns": "copy",
+          "key": "Four steps: name the connector, mint a one-time pairing code, install the agent on a machine inside the customer LAN, then confirm it is online and bind your devices."
+        },
+        {
+          "ns": "copy",
+          "key": "Use the site name so you can tell bridges apart later, for example “Main site bridge”."
+        },
+        {
+          "ns": "copy",
+          "key": "The pairing code is shown once and expires in 30 minutes. The agent exchanges it for a permanent token on first contact."
+        },
+        {
+          "ns": "copy",
+          "key": "Run the command on any always-on Windows or macOS machine in the same LAN as the routers and access points. It installs a background service that only makes outbound HTTPS calls — no port forwarding."
+        },
+        {
+          "ns": "copy",
           "key": "The agent heartbeats every 30 seconds. Once it shows Online, open Routers or Access Points, pick “Local Connector” as the connection method and select this connector."
+        },
+        {
+          "ns": "copy",
+          "key": "The agent heartbeats every 30 seconds. Once it shows Online, open Routers or Advanced → AP integrations, pick “Local Connector” as the connection method and select this connector."
         },
         {
           "ns": "copy",

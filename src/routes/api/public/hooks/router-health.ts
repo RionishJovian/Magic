@@ -20,15 +20,15 @@ export const Route = createFileRoute("/api/public/hooks/router-health")({
           if (error) throw new Error(error.message);
 
           const owners = [...new Set((rows ?? []).map((row) => row.owner_id))];
-          
+
           const results = await Promise.allSettled(
             owners.map(async (ownerId) => {
               return await runHealthSweepForOwner(ownerId);
-            })
+            }),
           );
 
           const formattedResults = results.map((res, idx) => {
-            if (res.status === \"fulfilled\") return res.value;
+            if (res.status === "fulfilled") return res.value;
             return {
               ownerId: owners[idx],
               error: res.reason instanceof Error ? res.reason.message : String(res.reason),
