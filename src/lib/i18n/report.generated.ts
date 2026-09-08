@@ -2,7 +2,7 @@
 import type { I18nReport } from "./report-types";
 
 export const i18nReport: I18nReport = {
-  "generatedAt": "2026-09-08T02:38:34.231Z",
+  "generatedAt": "2026-09-08T02:55:44.149Z",
   "sourceHash": "2346a12e14101d3a",
   "sourceCounts": {
     "ui": 256,
